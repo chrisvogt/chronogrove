@@ -74,6 +74,22 @@ describe('exported-config', () => {
       expect(process.env.GITHUB_OAUTH_SUCCESS_REDIRECT).toBe('/gh-done')
     })
 
+    it('maps anthropic nested object to ANTHROPIC_API_KEY for FUNCTIONS_CONFIG_EXPORT', () => {
+      const data = {
+        anthropic: { api_key: 'sk-ant-test' },
+      }
+      applyExportedConfigToEnv(data)
+      expect(process.env.ANTHROPIC_API_KEY).toBe('sk-ant-test')
+    })
+
+    it('does not map a flat top-level "anthropic.api_key" string key (path is nested anthropic.api_key only)', () => {
+      const data = {
+        'anthropic.api_key': 'sk-ant-wrong-shape',
+      } as Record<string, unknown>
+      applyExportedConfigToEnv(data)
+      expect(process.env.ANTHROPIC_API_KEY).toBeUndefined()
+    })
+
     it('maps Flickr OAuth paths for production FUNCTIONS_CONFIG_EXPORT', () => {
       const data = {
         flickr: {
