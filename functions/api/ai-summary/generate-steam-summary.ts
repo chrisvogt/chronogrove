@@ -1,24 +1,19 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { logger } from 'firebase-functions'
 
-import { getGeminiApiKey } from '../../config/backend-config.js'
+import { getAiSummaryApiKey } from '../../config/backend-config.js'
 import type { SteamSummaryInput } from '../../types/steam.js'
-import extractJsonFromGeminiResponse from '../../utils/extract-json-from-gemini-response.js'
+import { requestAiSummaryCompletion } from '../../utils/ai-summary-messages.js'
+import extractJsonFromAiResponse from '../../utils/extract-json-from-ai-response.js'
 
 /**
- * Generate AI summary of Steam gaming data using Gemini
- * @param {Object} steamData - The Steam data object containing collections and profile info
- * @returns {Promise<string>} - The AI-generated summary
+ * Generate AI summary of Steam gaming data (LLM JSON → HTML paragraphs).
  */
 const generateSteamSummary = async (steamData: SteamSummaryInput): Promise<string> => {
-  const apiKey = getGeminiApiKey()
+  const apiKey = getAiSummaryApiKey()
 
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is required')
+    throw new Error('ANTHROPIC_API_KEY environment variable is required')
   }
-
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
   const { collections, profile, metrics } = steamData
 
@@ -70,16 +65,15 @@ Total Games Owned: ${metrics.find(m => m.id === 'owned-games-count')?.value || 0
 `
 
   try {
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const parsed = extractJsonFromGeminiResponse<{ response?: unknown }>(response.text())
+    const responseText = await requestAiSummaryCompletion({ apiKey, userMessage: prompt })
+    const parsed = extractJsonFromAiResponse<{ response?: unknown }>(responseText)
     if (!parsed) {
-      throw new Error('Gemini response was not valid JSON (no markdown block or raw JSON)')
+      throw new Error('Model response was not valid JSON (no markdown block or raw JSON)')
     }
     const raw = parsed.response
     return typeof raw === 'string' ? raw : ''
   } catch (error: unknown) {
-    logger.error('Error generating Steam summary with Gemini:', error)
+    logger.error('Error generating Steam AI summary:', error)
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(`Failed to generate AI summary: ${message}`, { cause: error })
   }

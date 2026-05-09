@@ -16,8 +16,8 @@ const envVarMappings = {
   'auth.client_auth_domain': 'FIREBASE_CLIENT_AUTH_DOMAIN',
   'auth.client_project_id': 'FIREBASE_CLIENT_PROJECT_ID',
 
-  // Gemini (via Firebase)
-  'gemini.api_key': 'GEMINI_API_KEY',
+  // Anthropic (AI summaries)
+  'anthropic.api_key': 'ANTHROPIC_API_KEY',
   
   // Storage
   'storage.firestore_database_url': 'STORAGE_FIRESTORE_DATABASE_URL',

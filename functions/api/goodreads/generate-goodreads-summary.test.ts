@@ -1,18 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import generateGoodreadsSummary from './generate-goodreads-summary.js'
 
-// Mock the Google Generative AI (use function so it's a constructor)
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn(function () {
-    return {
-      getGenerativeModel: vi.fn(() => ({
-        generateContent: vi.fn()
-      }))
-    }
-  })
-}))
+type FetchCallInit = { body?: string; method?: string; headers?: Record<string, string> }
 
-// Mock firebase functions logger
 vi.mock('firebase-functions', () => ({
   logger: {
     debug: vi.fn(),
@@ -22,44 +12,56 @@ vi.mock('firebase-functions', () => ({
   },
 }))
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { logger } from 'firebase-functions'
 
+const assistantPayload = (text: string) =>
+  JSON.stringify({
+    id: 'msg_test',
+    type: 'message',
+    role: 'assistant',
+    content: [{ type: 'text', text }],
+  })
+
 describe('generateGoodreadsSummary', () => {
-  let mockGenerateContent
-  let mockGetGenerativeModel
-  let mockGoogleGenerativeAI
-  
+  const mockFetch = vi.fn()
+  const originalFetch = globalThis.fetch
   const originalEnv = process.env
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
-    // Reset environment
     process.env = { ...originalEnv }
-    
-    mockGenerateContent = vi.fn()
-    mockGetGenerativeModel = vi.fn(() => ({ generateContent: mockGenerateContent }))
-    mockGoogleGenerativeAI = vi.fn(function () { return { getGenerativeModel: mockGetGenerativeModel } })
-    
-    GoogleGenerativeAI.mockImplementation(mockGoogleGenerativeAI)
+    process.env.ANTHROPIC_API_KEY = 'test-api-key'
+    mockFetch.mockReset()
+    globalThis.fetch = mockFetch as typeof fetch
   })
 
   afterEach(() => {
     process.env = originalEnv
+    globalThis.fetch = originalFetch
   })
 
-  it('should throw error when GEMINI_API_KEY is not provided', async () => {
-    delete process.env.GEMINI_API_KEY
+  const mockAiSummaryText = (text: string) => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => assistantPayload(text),
+    })
+  }
+
+  const lastUserPrompt = (): string => {
+    const init = mockFetch.mock.calls[mockFetch.mock.calls.length - 1][1] as FetchCallInit
+    return JSON.parse(init.body as string).messages[0].content as string
+  }
+
+  it('should throw error when ANTHROPIC_API_KEY is not provided', async () => {
+    delete process.env.ANTHROPIC_API_KEY
 
     await expect(generateGoodreadsSummary({})).rejects.toThrow(
-      'GEMINI_API_KEY environment variable is required'
+      'ANTHROPIC_API_KEY environment variable is required',
     )
   })
 
   it('should generate AI summary successfully', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
     const mockGoodreadsData = {
       collections: {
         recentlyReadBooks: [
@@ -68,20 +70,20 @@ describe('generateGoodreadsSummary', () => {
             authors: ['F. Scott Fitzgerald'],
             rating: 4,
             categories: ['Fiction', 'Classic'],
-            pageCount: 180
+            pageCount: 180,
           },
           {
             title: 'Sapiens',
             authors: ['Yuval Noah Harari'],
             rating: 5,
             categories: ['Non-fiction', 'History'],
-            pageCount: 443
-          }
-        ]
+            pageCount: 443,
+          },
+        ],
       },
       profile: {
-        displayName: 'Chris Vogt'
-      }
+        displayName: 'Chris Vogt',
+      },
     }
 
     const mockResponseText = `\`\`\`json
@@ -94,31 +96,35 @@ describe('generateGoodreadsSummary', () => {
 }
 \`\`\``
 
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText(mockResponseText)
 
     const result = await generateGoodreadsSummary(mockGoodreadsData)
 
-    expect(result).toBe('<p>Chris has been exploring a diverse range of literature lately.</p><p>Recent reads include both classic fiction and contemporary non-fiction.</p>')
-    
-    // Verify Google AI was initialized correctly
-    expect(GoogleGenerativeAI).toHaveBeenCalledWith('test-api-key')
-    expect(mockGetGenerativeModel).toHaveBeenCalledWith({ model: 'gemini-2.0-flash' })
-    expect(mockGenerateContent).toHaveBeenCalledWith(
-      expect.stringContaining('chrisvogt.me'),
+    expect(result).toBe(
+      '<p>Chris has been exploring a diverse range of literature lately.</p><p>Recent reads include both classic fiction and contemporary non-fiction.</p>',
     )
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.anthropic.com/v1/messages',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'x-api-key': 'test-api-key',
+          'anthropic-version': '2023-06-01',
+        }),
+      }),
+    )
+    const init = mockFetch.mock.calls[0][1] as FetchCallInit
+    const body = JSON.parse(init.body as string) as { model: string; messages: { content: string }[] }
+    expect(body.model).toBeTruthy()
+    expect(body.messages[0].content).toContain('chrisvogt.me')
   })
 
   it('should handle missing collections gracefully', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
     const mockGoodreadsData = {
       profile: {
-        displayName: 'Chris Vogt'
-      }
+        displayName: 'Chris Vogt',
+      },
     }
 
     const mockResponseText = `\`\`\`json
@@ -131,30 +137,22 @@ describe('generateGoodreadsSummary', () => {
 }
 \`\`\``
 
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText(mockResponseText)
 
     const result = await generateGoodreadsSummary(mockGoodreadsData)
 
     expect(result).toBe('<p>Chris\'s reading activity data is currently unavailable.</p>')
-    
-    // Verify prompt includes empty arrays for missing data
-    expect(mockGenerateContent).toHaveBeenCalledWith(
-      expect.stringContaining('"recentlyReadBooksForWidget": []'),
-    )
-    expect(mockGenerateContent).toHaveBeenCalledWith(expect.stringContaining('"completeReadShelf": []'))
+
+    const prompt = lastUserPrompt()
+    expect(prompt).toContain('"recentlyReadBooksForWidget": []')
+    expect(prompt).toContain('"completeReadShelf": []')
   })
 
   it('should handle missing profile gracefully', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
     const mockGoodreadsData = {
       collections: {
-        recentlyReadBooks: []
-      }
+        recentlyReadBooks: [],
+      },
     }
 
     const mockResponseText = `\`\`\`json
@@ -164,37 +162,26 @@ describe('generateGoodreadsSummary', () => {
 }
 \`\`\``
 
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText(mockResponseText)
 
     const result = await generateGoodreadsSummary(mockGoodreadsData)
 
     expect(result).toBe('<p>Reading activity summary unavailable.</p>')
-    
-    // Verify default profile name is used
-    expect(mockGenerateContent).toHaveBeenCalledWith(expect.stringContaining('Chris Vogt'))
+
+    expect(lastUserPrompt()).toContain('Chris Vogt')
   })
 
   it('should handle malformed JSON response', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
     const mockGoodreadsData = {
       collections: { recentlyReadBooks: [] },
-      profile: { displayName: 'Chris Vogt' }
+      profile: { displayName: 'Chris Vogt' },
     }
 
     const mockResponseText = `\`\`\`json
 { invalid json here
 \`\`\``
 
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText(mockResponseText)
 
     try {
       await generateGoodreadsSummary(mockGoodreadsData)
@@ -203,24 +190,19 @@ describe('generateGoodreadsSummary', () => {
       expect(err.message).toContain('Failed to generate AI summary')
       expect(err.cause).toBeDefined()
     }
-    expect(logger.error).toHaveBeenCalledWith('Error generating Goodreads summary with Gemini:', expect.any(Error))
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error generating Goodreads AI summary:',
+      expect.any(Error),
+    )
   })
 
   it('should handle response without JSON markdown blocks', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
     const mockGoodreadsData = {
       collections: { recentlyReadBooks: [] },
-      profile: { displayName: 'Chris Vogt' }
+      profile: { displayName: 'Chris Vogt' },
     }
 
-    const mockResponseText = 'Just plain text without JSON blocks'
-
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText('Just plain text without JSON blocks')
 
     try {
       await generateGoodreadsSummary(mockGoodreadsData)
@@ -231,47 +213,50 @@ describe('generateGoodreadsSummary', () => {
     }
   })
 
-  it('should accept raw JSON response when Gemini does not wrap in markdown', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-
+  it('should accept raw JSON response when the model does not wrap in markdown', async () => {
     const mockGoodreadsData = {
       collections: { recentlyReadBooks: [] },
-      profile: { displayName: 'Chris Vogt' }
+      profile: { displayName: 'Chris Vogt' },
     }
 
-    const mockResponseText = '{"response": "<p>Raw JSON summary.</p>", "debug": {}}'
-
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText('{"response": "<p>Raw JSON summary.</p>", "debug": {}}')
 
     const result = await generateGoodreadsSummary(mockGoodreadsData)
     expect(result).toBe('<p>Raw JSON summary.</p>')
   })
 
-  it('should handle Google AI API errors', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
+  it('should handle AI summary API errors', async () => {
     const mockGoodreadsData = {
       collections: { recentlyReadBooks: [] },
-      profile: { displayName: 'Chris Vogt' }
+      profile: { displayName: 'Chris Vogt' },
     }
 
     const apiError = new Error('API quota exceeded')
-    mockGenerateContent.mockRejectedValue(apiError)
+    mockFetch.mockRejectedValueOnce(apiError)
 
-    await expect(generateGoodreadsSummary(mockGoodreadsData)).rejects.toThrow('Failed to generate AI summary: API quota exceeded')
-    expect(logger.error).toHaveBeenCalledWith('Error generating Goodreads summary with Gemini:', apiError)
+    await expect(generateGoodreadsSummary(mockGoodreadsData)).rejects.toThrow(
+      'Failed to generate AI summary: API quota exceeded',
+    )
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error generating Goodreads AI summary:',
+      apiError,
+    )
+  })
+
+  it('wraps non-Error rejections from the AI summary request', async () => {
+    mockFetch.mockRejectedValueOnce('rate limited')
+
+    await expect(
+      generateGoodreadsSummary({ collections: { recentlyReadBooks: [] }, profile: {} }),
+    ).rejects.toMatchObject({
+      message: 'Failed to generate AI summary: rate limited',
+    })
   })
 
   it('should handle response missing required fields', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
     const mockGoodreadsData = {
       collections: { recentlyReadBooks: [] },
-      profile: { displayName: 'Chris Vogt' }
+      profile: { displayName: 'Chris Vogt' },
     }
 
     const mockResponseText = `\`\`\`json
@@ -282,21 +267,14 @@ describe('generateGoodreadsSummary', () => {
 }
 \`\`\``
 
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText(mockResponseText)
 
     const result = await generateGoodreadsSummary(mockGoodreadsData)
 
-    // Should return empty string when response field is missing
     expect(result).toBe('')
   })
 
   it('should include comprehensive book data in prompt', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-    
     const mockGoodreadsData = {
       collections: {
         recentlyReadBooks: [
@@ -305,13 +283,13 @@ describe('generateGoodreadsSummary', () => {
             authors: ['Frank Herbert'],
             rating: 5,
             categories: ['Science Fiction'],
-            pageCount: 688
-          }
-        ]
+            pageCount: 688,
+          },
+        ],
       },
       profile: {
-        displayName: 'Test User'
-      }
+        displayName: 'Test User',
+      },
     }
 
     const mockResponseText = `\`\`\`json
@@ -321,37 +299,25 @@ describe('generateGoodreadsSummary', () => {
 }
 \`\`\``
 
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => mockResponseText
-      }
-    })
+    mockAiSummaryText(mockResponseText)
 
     await generateGoodreadsSummary(mockGoodreadsData)
 
-    const promptCall = mockGenerateContent.mock.calls[0][0]
-    
-    // Verify all book data is included in prompt
+    const promptCall = lastUserPrompt()
+
     expect(promptCall).toContain('"title":"Dune"')
     expect(promptCall).toContain('"authors":["Frank Herbert"]')
     expect(promptCall).toContain('"rating":5')
     expect(promptCall).toContain('"categories":["Science Fiction"]')
     expect(promptCall).toContain('"pageCount":688')
-    
-    // Verify prompt contains instructions
+
     expect(promptCall).toContain('chrisvogt.me')
     expect(promptCall).toContain('Two or three')
     expect(promptCall).toContain('Third person')
   })
 
   it('returns trimmed text when the model response has no paragraph tags', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => '{"response": "  Plain fallback copy.  ", "debug": {}}',
-      },
-    })
+    mockAiSummaryText('{"response": "  Plain fallback copy.  ", "debug": {}}')
 
     const result = await generateGoodreadsSummary({
       collections: { recentlyReadBooks: [] },
@@ -362,38 +328,25 @@ describe('generateGoodreadsSummary', () => {
   })
 
   it('keeps all <p> elements when the model returns two or three paragraphs', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          `\`\`\`json
+    mockAiSummaryText(
+      `\`\`\`json
 {
   "response": "<p>First graph.</p><p>Second graph.</p><p>Third graph.</p>",
   "debug": {}
 }
 \`\`\``,
-      },
-    })
+    )
 
     const result = await generateGoodreadsSummary({
       collections: { recentlyReadBooks: [] },
       profile: { displayName: 'Chris Vogt' },
     })
 
-    expect(result).toBe(
-      '<p>First graph.</p><p>Second graph.</p><p>Third graph.</p>',
-    )
+    expect(result).toBe('<p>First graph.</p><p>Second graph.</p><p>Third graph.</p>')
   })
 
   it('maps sparse widget books into completeReadShelf and omits categories when absent', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => '{"response":"<p>x</p><p>y</p>","debug":{}}',
-      },
-    })
+    mockAiSummaryText('{"response":"<p>x</p><p>y</p>","debug":{}}')
 
     const sparseBook: import('../../types/goodreads.js').GoodreadsRecentlyReadBook = {
       id: 'vol1',
@@ -404,7 +357,6 @@ describe('generateGoodreadsSummary', () => {
       thumbnail: '',
       categories: [],
     }
-    // Exercise `??` / `||` fallbacks by omitting optional fields at runtime
     delete (sparseBook as { authors?: string[] }).authors
     delete (sparseBook as { isbn?: string | null }).isbn
     delete (sparseBook as { rating?: string | null }).rating
@@ -420,7 +372,7 @@ describe('generateGoodreadsSummary', () => {
       { fullReadShelf: [] },
     )
 
-    const promptCall = mockGenerateContent.mock.calls[0][0] as string
+    const promptCall = lastUserPrompt()
     expect(promptCall).toContain('Goodreads Profile: chrisvogt')
     expect(promptCall).toContain('"authors":[]')
     expect(promptCall).toContain('"isbn":null')
@@ -431,8 +383,6 @@ describe('generateGoodreadsSummary', () => {
   })
 
   it('should put full read shelf in completeReadShelf when provided', async () => {
-    process.env.GEMINI_API_KEY = 'test-api-key'
-
     const mockGoodreadsData = {
       collections: { recentlyReadBooks: [] },
       profile: { displayName: 'Chris Vogt' },
@@ -448,19 +398,14 @@ describe('generateGoodreadsSummary', () => {
       },
     ]
 
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          '{"response": "<p>Shelf summary.</p>", "debug": {}}',
-      },
-    })
+    mockAiSummaryText('{"response": "<p>Shelf summary.</p>", "debug": {}}')
 
     await generateGoodreadsSummary(mockGoodreadsData, { fullReadShelf })
 
-    const promptCall = mockGenerateContent.mock.calls[0][0] as string
+    const promptCall = lastUserPrompt()
     expect(promptCall).toContain('"completeReadShelf"')
     expect(promptCall).toContain('Deep Work')
     expect(promptCall).toContain('Cal Newport')
     expect(promptCall).toContain('9781455586691')
   })
-}) 
+})

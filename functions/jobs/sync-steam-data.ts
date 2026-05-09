@@ -14,7 +14,7 @@ import { toStoredDateTime } from '../utils/time.js'
 import getOwnedGames from '../api/steam/get-owned-games.js'
 import getPlayerSummary from '../api/steam/get-player-summary.js'
 import getRecentlyPlayedGames from '../api/steam/get-recently-played-games.js'
-import generateSteamSummary from '../api/gemini/generate-steam-summary.js'
+import generateSteamSummary from '../api/ai-summary/generate-steam-summary.js'
 
 import { getDefaultWidgetUserId, toProviderCollectionPath } from '../config/backend-paths.js'
 import { getSteamConfig } from '../config/backend-config.js'
@@ -145,7 +145,7 @@ const syncSteamData = async (
     },
   }
 
-  // Generate AI summary using Gemini
+  // Generate AI summary (LLM)
   let aiSummary: string | null = null
   try {
     onProgress?.({

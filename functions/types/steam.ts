@@ -1,5 +1,5 @@
 /**
- * Steam Web API and internal widget shapes for sync + Gemini summary.
+ * Steam Web API and internal widget shapes for sync + AI summary.
  */
 
 /** Single game as returned by GetOwnedGames / GetRecentlyPlayedGames. */
@@ -62,7 +62,7 @@ export interface SteamWidgetProfile {
   profileURL?: string
 }
 
-/** Payload passed to Gemini for Steam summary (subset of persisted widget doc). */
+/** Payload passed to the AI summary step for Steam (subset of persisted widget doc). */
 export interface SteamSummaryInput {
   collections: SteamWidgetCollections
   metrics: { displayName: string; id: string; value: number | string }[]

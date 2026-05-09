@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CORS (`/api`)** — **`*.chrisvogt.me`** origins are still allowed for personal-site and tenant API hosts, but the **`metrics`** label on **`chrisvogt.me`** is excluded (sunset operator hostname). Allowlist logic lives in **`app/api-cors-allowlist.ts`** with unit tests; integration tests use **`https://console.chronogrove.com`** as a sample allowed Origin.
 
+## [0.30.5] - 2026-05-08
+
+### Changed
+
+- **AI summary provider** — Replaced the `@google/generative-ai` SDK (Gemini) with a direct HTTP client targeting the **Anthropic Messages API** (`/v1/messages`). All Gemini-specific env vars, config keys, and file names are renamed to provider-neutral equivalents:
+  - `GEMINI_API_KEY` → **`ANTHROPIC_API_KEY`**; exported-config key `gemini.api_key` → **`anthropic.api_key`**
+  - `getGeminiApiKey` → **`getAiSummaryApiKey`** in `config/backend-config.ts`
+  - `api/gemini/generate-steam-summary.ts` → **`api/ai-summary/generate-steam-summary.ts`**
+  - `utils/extract-json-from-gemini-response.ts` → **`utils/extract-json-from-ai-response.ts`**
+- **`utils/ai-summary-messages.ts`** — New `requestAiSummaryCompletion` helper: single-turn user-message POST to Anthropic, `assistantTextFromResponseBody` parser, `resolveMaxTokens` for env-driven token cap. Default model **`claude-sonnet-4-6`**; default `max_tokens` **1024** (sufficient for 2–3 `<p>` paragraph outputs). Both are overridable via **`ANTHROPIC_MODEL`** and **`ANTHROPIC_MAX_OUTPUT_TOKENS`** env vars, or as explicit call params.
+- **Error handling** — `generate-goodreads-summary.ts` and `generate-steam-summary.ts` now type `catch` blocks as `error: unknown` and guard with `instanceof Error` before reading `.message`.
+- **Dependencies** — Removed `@google/generative-ai` (`^0.24.1`); no new prod dependencies (uses Node `fetch`).
+
+### Tests
+
+- **`utils/ai-summary-messages.test.ts`** — 23 new tests: happy path, multi-block join, non-text block skip, request shape (URL / headers / body), model and `maxTokens` defaults and overrides (including invalid env values), structured and unstructured HTTP error bodies, non-JSON responses, and empty / non-array / missing `content`.
+- **`api/ai-summary/generate-steam-summary.test.ts`** — Moved from `api/gemini/`; mocks updated from SDK constructor to `globalThis.fetch`.
+- **`api/goodreads/generate-goodreads-summary.test.ts`** — Mocks updated from SDK constructor to `globalThis.fetch`; `lastUserPrompt()` helper extracts the user message from fetch call args.
+
 ## [0.30.4] - 2026-05-03
 
 ### Security
@@ -227,7 +246,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Goodreads AI summary** – Gemini prompt asks for **two or three** `<p>` paragraphs (replacing “exactly two”). `normalizeParagraphSummary` keeps **all** returned `<p>` blocks; the homepage UI collapses extra paragraphs behind “Read more,” so the backend no longer truncates a third paragraph.
+- **Goodreads AI summary** – The LLM prompt asks for **two or three** `<p>` paragraphs (replacing “exactly two”). `normalizeParagraphSummary` keeps **all** returned `<p>` blocks; the homepage UI collapses extra paragraphs behind “Read more,” so the backend no longer truncates a third paragraph.
 
 ### Developer experience
 
@@ -263,12 +282,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Goodreads AI reading context** – Paginated fetch of the full “read” shelf from Goodreads XML only (`fetch-full-read-shelf-for-ai`), passed to Gemini for summaries without enriching extra titles via Google Books or cover downloads. Widget `recentlyReadBooks` and display pipeline are unchanged.
+- **Goodreads AI reading context** – Paginated fetch of the full “read” shelf from Goodreads XML only (`fetch-full-read-shelf-for-ai`), passed into the AI summary step without enriching extra titles via Google Books or cover downloads. Widget `recentlyReadBooks` and display pipeline are unchanged.
 - **Config** – `GOODREADS_AI_READ_SHELF_PER_PAGE` (200) and `GOODREADS_AI_READ_SHELF_MAX_PAGES` (10) in `goodreads-config.ts`.
 
 ### Changed
 
-- **Goodreads Gemini prompt** – Homepage-oriented copy for chrisvogt.me: exactly **two** third-person `<p>` blocks; uses `completeReadShelf` plus `recentlyReadBooksForWidget` in the prompt. `ensureTwoParagraphSummary` keeps the first two paragraphs if the model returns more.
+- **Goodreads AI summary prompt** – Homepage-oriented copy for chrisvogt.me: exactly **two** third-person `<p>` blocks; uses `completeReadShelf` plus `recentlyReadBooksForWidget` in the prompt. `ensureTwoParagraphSummary` keeps the first two paragraphs if the model returns more.
 - **Sync resilience** – If full-shelf pagination throws, the job logs a warning and the summary still runs using widget books only.
 
 ### Developer experience
@@ -348,7 +367,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Source layout (config / widgets / utils / helpers)** – Source that lived under `lib/` has been moved into role-based directories so that `lib/` is build output only and can be fully gitignored:
   - **config/** – `constants.ts`, `exported-config.ts` (and tests)
   - **widgets/** – `get-widget-content.ts`, all provider-specific widget getters, `queries/github-widget-content.gql`, and widget tests
-  - **utils/** – `extract-json-from-gemini-response.ts` (and test)
+  - **utils/** – `extract-json-from-ai-response.ts` (and test; previously named for an older provider)
   - **helpers/** – `get-user-status.ts`, `get-review.ts` (and get-user-status test)
   - **lib/** – Now contains only `tsc` output; added to `.gitignore`. Run `pnpm run build` before deploy.
   - Imports updated across `index`, `api/`, `jobs/`, `transformers/`, and tests. README and ENVIRONMENT_SETUP.md now reference `config/exported-config.ts`.
@@ -562,16 +581,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **AI summaries (Steam & Goodreads)** – Summaries were failing due to Gemini API changes:
-  - Parse both markdown-wrapped and raw JSON responses (shared `extractJsonFromGeminiResponse` helper)
-  - Use `gemini-2.0-flash` model (replaces deprecated `gemini-1.5-flash`)
+- **AI summaries (Steam & Goodreads)** – Summaries were failing due to upstream API response-shape changes:
+  - Parse both markdown-wrapped and raw JSON responses (shared `extractJsonFromAiResponse` helper)
+  - Pin/update the configured flash model as needed for the provider
   - Removed debug logging from summary generators
 - **Steam widget** – `getSteamWidgetContent` now returns a safe default when the `widget-content` doc is missing instead of throwing
 - Log message typo: "Goodreadsn" → "Goodreads" in sync-goodreads-data
 
 ### Changed
 
-- `.env.template`: Documented that `GEMINI_API_KEY` must not be restricted to HTTP referrers when used from Firebase Functions
+- `.env.template`: Documented AI summary API keys must not be restricted to HTTP referrers when used from Firebase Functions
 
 ## [0.20.1] - 2025-02-14
 
@@ -663,7 +682,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- AI-powered reading summary to Goodreads widget using Google Gemini
+- AI-powered reading summary to Goodreads widget using an LLM backend
 - Intelligent 2-3 paragraph summaries of reading activity and patterns
 - AI analysis of recent books, genre preferences, and standout reads
 - Comprehensive test coverage for new AI summary functionality (100% code coverage)
@@ -709,7 +728,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- AI summary to the Steam widget content using Gemini via Firebase
+- AI summary to the Steam widget content via LLM backend
 
 ## [0.11.2] - [0.11.5] - 2024-XX-XX
 

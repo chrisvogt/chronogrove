@@ -251,7 +251,7 @@ Set at minimum:
 Optional examples:
 
 - `NODE_ENV=development`
-- `GEMINI_API_KEY` (if AI summary features are enabled)
+- `ANTHROPIC_API_KEY` (if AI summary features are enabled)
 
 ### Important env safety notes
 

@@ -1,8 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { logger } from 'firebase-functions'
 
-import { getGeminiApiKey } from '../../config/backend-config.js'
-import extractJsonFromGeminiResponse from '../../utils/extract-json-from-gemini-response.js'
+import { getAiSummaryApiKey } from '../../config/backend-config.js'
+import { requestAiSummaryCompletion } from '../../utils/ai-summary-messages.js'
+import extractJsonFromAiResponse from '../../utils/extract-json-from-ai-response.js'
 
 import type { GoodreadsAiReadShelfEntry } from '../../types/goodreads.js'
 import type { GoodreadsWidgetDocument } from '../../types/widget-content.js'
@@ -12,7 +12,7 @@ export type GenerateGoodreadsSummaryOptions = {
   fullReadShelf?: GoodreadsAiReadShelfEntry[]
 }
 
-type GeminiGoodreadsSummaryJson = {
+type GoodreadsSummaryJson = {
   response?: string
   debug?: Record<string, unknown>
 }
@@ -36,7 +36,7 @@ const normalizeParagraphSummary = (html: string): string => {
 }
 
 /**
- * Generate AI summary of Goodreads reading data using Gemini
+ * Generate AI summary of Goodreads reading data (LLM JSON → HTML paragraphs).
  * @param {Object} goodreadsData - The Goodreads data object containing collections and profile info
  * @returns {Promise<string>} - The AI-generated summary
  */
@@ -44,14 +44,11 @@ const generateGoodreadsSummary = async (
   goodreadsData: GoodreadsWidgetDocument,
   options: GenerateGoodreadsSummaryOptions = {},
 ): Promise<string> => {
-  const apiKey = getGeminiApiKey()
+  const apiKey = getAiSummaryApiKey()
 
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is required')
+    throw new Error('ANTHROPIC_API_KEY environment variable is required')
   }
-
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
   const { collections, profile } = goodreadsData
   const { fullReadShelf = [] } = options
@@ -104,17 +101,17 @@ Goodreads Profile: ${profile?.name || profile?.username || 'Chris Vogt'}
 `
 
   try {
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const parsed = extractJsonFromGeminiResponse<GeminiGoodreadsSummaryJson>(response.text())
+    const responseText = await requestAiSummaryCompletion({ apiKey, userMessage: prompt })
+    const parsed = extractJsonFromAiResponse<GoodreadsSummaryJson>(responseText)
     if (!parsed) {
-      throw new Error('Gemini response was not valid JSON (no markdown block or raw JSON)')
+      throw new Error('Model response was not valid JSON (no markdown block or raw JSON)')
     }
     const { response: sanitizedResponse = '' } = parsed
     return normalizeParagraphSummary(sanitizedResponse)
-  } catch (error) {
-    logger.error('Error generating Goodreads summary with Gemini:', error)
-    throw new Error(`Failed to generate AI summary: ${error.message}`, { cause: error })
+  } catch (error: unknown) {
+    logger.error('Error generating Goodreads AI summary:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to generate AI summary: ${message}`, { cause: error })
   }
 }
 

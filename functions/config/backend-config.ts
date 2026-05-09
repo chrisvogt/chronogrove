@@ -139,7 +139,8 @@ export const getGoodreadsConfig = () => ({
 
 export const getGoogleBooksApiKey = (): string | undefined => process.env.GOOGLE_BOOKS_API_KEY
 
-export const getGeminiApiKey = (): string | undefined => process.env.GEMINI_API_KEY
+/** API key for widget AI summaries (`ANTHROPIC_API_KEY` in env / exported config). */
+export const getAiSummaryApiKey = (): string | undefined => process.env.ANTHROPIC_API_KEY
 
 export const getInstagramAccessToken = (): string | undefined =>
   process.env.INSTAGRAM_ACCESS_TOKEN

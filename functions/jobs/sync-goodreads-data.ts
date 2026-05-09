@@ -564,7 +564,7 @@ const syncGoodreadsData = async (
     profile: result.profile,
   }
 
-  // Generate AI summary using Gemini
+  // Generate AI summary (LLM)
   let aiSummary: string | undefined
   try {
     onProgress?.({
