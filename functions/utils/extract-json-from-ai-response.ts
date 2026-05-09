@@ -1,12 +1,10 @@
+import { jsonrepair } from 'jsonrepair'
+
 type JsonObject = Record<string, unknown>
 
-const tryParseJsonObject = <T extends JsonObject>(raw: string): T | null => {
-  const trimmed = raw.trim()
-  if (!trimmed) {
-    return null
-  }
+const parseJsonObject = <T extends JsonObject>(text: string): T | null => {
   try {
-    const parsed = JSON.parse(trimmed) as unknown
+    const parsed = JSON.parse(text) as unknown
     if (
       parsed !== null &&
       typeof parsed === 'object' &&
@@ -21,8 +19,33 @@ const tryParseJsonObject = <T extends JsonObject>(raw: string): T | null => {
 }
 
 /**
+ * Strict parse, then `jsonrepair` + parse (handles common LLM JSON defects:
+ * unescaped `"` inside HTML string values, raw newlines inside strings, trailing commas, etc.).
+ */
+const tryParseJsonObject = <T extends JsonObject = JsonObject>(raw: string): T | null => {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const direct = parseJsonObject<T>(trimmed)
+  if (direct) {
+    return direct
+  }
+
+  try {
+    const repaired = jsonrepair(trimmed)
+    return parseJsonObject<T>(repaired)
+  } catch {
+    return null
+  }
+}
+
+/**
  * Parse JSON from an LLM text response (markdown ```json ... ```, generic fenced block,
  * raw JSON, or a `{...}` substring when the model adds a short preamble).
+ * After strict `JSON.parse`, runs **`jsonrepair`** once for common LLM mistakes (unescaped
+ * quotes in HTML strings, raw newlines inside strings, trailing commas).
  */
 const extractJsonFromAiResponse = <T extends JsonObject = JsonObject>(
   str: string
@@ -31,8 +54,9 @@ const extractJsonFromAiResponse = <T extends JsonObject = JsonObject>(
     return null
   }
 
-  // 1. Markdown fenced blocks — parse the full fence body (nested `{`/`}` safe)
-  const fencePatterns = [/```json\s*([\s\S]*?)```/i, /```\s*([\s\S]*?)```/]
+  // 1. Markdown fenced blocks — greedy ```json body so an early ``` inside invalid JSON
+  //    does not truncate the capture before jsonrepair can fix the payload.
+  const fencePatterns = [/```json\s*([\s\S]*)```/i, /```\s*([\s\S]*?)```/]
   for (const re of fencePatterns) {
     const m = str.match(re)
     if (m?.[1]) {

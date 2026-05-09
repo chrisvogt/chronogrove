@@ -177,9 +177,8 @@ describe('generateGoodreadsSummary', () => {
       profile: { displayName: 'Chris Vogt' },
     }
 
-    const mockResponseText = `\`\`\`json
-{ invalid json here
-\`\`\``
+    // Empty fenced body (jsonrepair can "fix" `{ invalid json here` into an object, so do not use that)
+    const mockResponseText = '```json\n\n```'
 
     mockAiSummaryText(mockResponseText)
 

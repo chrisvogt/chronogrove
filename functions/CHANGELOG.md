@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Local emulators** — **`pnpm start`** in **`functions/`** runs **`prestart` → `build`** so **`lib/`** matches TypeScript before **`firebase emulators:start`**. Root **`pnpm run dev:full`** builds functions once before starting emulators. **`firebase emulators:start` alone** still does not compile; **`ENVIRONMENT_SETUP.md`** documents the stale-**`lib/`** pitfall.
 
+### Fixed
+
+- **AI summaries** — **`extract-json-from-ai-response`** uses a greedy **` ```json `** fence capture (avoids truncating when the model echoes fence-like characters) and **`jsonrepair`** after strict **`JSON.parse`** so common LLM JSON defects in **`response`** HTML (unescaped quotes, raw newlines in strings) still parse. Steam and Goodreads prompts add explicit JSON string-safety rules.
+
 ## [0.30.6] - 2026-05-09
 
 ### Fixed
