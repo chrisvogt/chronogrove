@@ -280,11 +280,7 @@ export function createExpressApp({
       try {
         sessionClaims = await authService.verifySessionCookie(sessionCookie)
         if (logVerificationDetails) {
-          logger.info('Session cookie verified successfully', {
-            uid: sessionClaims.uid,
-            email: sessionClaims.email,
-            emailVerified: sessionClaims.emailVerified,
-          })
+          logger.info('Session cookie verified successfully')
         }
       } catch (error) {
         if (logVerificationDetails) {
@@ -302,12 +298,7 @@ export function createExpressApp({
       try {
         bearerClaims = await authService.verifyIdToken(bearerToken)
         if (logVerificationDetails) {
-          logger.info('auth: bearer token', {
-            path: req.path,
-            uid: bearerClaims.uid,
-            email: bearerClaims.email,
-            emailVerified: bearerClaims.emailVerified,
-          })
+          logger.info('Bearer token verified', { path: req.path })
         }
       } catch (error) {
         if (logVerificationDetails) {
@@ -328,8 +319,8 @@ export function createExpressApp({
       logger.warn(
         'Session uid does not match Bearer uid; preferring Bearer and clearing session cookie',
         {
-          sessionUid: sessionClaims.uid,
-          bearerUid: bearerClaims.uid,
+          sessionUidPrefix: sessionClaims.uid.slice(0, 8),
+          bearerUidPrefix: bearerClaims.uid.slice(0, 8),
         }
       )
       res.clearCookie('session', sessionCookieBaseOptions)

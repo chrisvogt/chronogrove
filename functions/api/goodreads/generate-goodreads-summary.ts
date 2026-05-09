@@ -104,6 +104,15 @@ Goodreads Profile: ${profile?.name || profile?.username || 'Chris Vogt'}
     const responseText = await requestAiSummaryCompletion({ apiKey, userMessage: prompt })
     const parsed = extractJsonFromAiResponse<GoodreadsSummaryJson>(responseText)
     if (!parsed) {
+      const maxPreview = 600
+      const preview =
+        responseText.length > maxPreview
+          ? `${responseText.slice(0, maxPreview)}…`
+          : responseText
+      logger.warn('Goodreads AI summary: unparseable model text (expected JSON)', {
+        textLength: responseText.length,
+        textPreview: preview,
+      })
       throw new Error('Model response was not valid JSON (no markdown block or raw JSON)')
     }
     const { response: sanitizedResponse = '' } = parsed

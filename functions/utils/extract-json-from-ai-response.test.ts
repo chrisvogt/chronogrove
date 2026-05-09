@@ -8,6 +8,23 @@ describe('extractJsonFromAiResponse', () => {
     expect(result).toEqual({ a: 1 })
   })
 
+  it('parses nested objects inside a markdown json fence (regression: non-greedy inner `{` capture)', () => {
+    const str = `\`\`\`json
+{"response": "<p>x</p>", "debug": {"recentlyPlayedGames": [], "topPlayedGames": []}}
+\`\`\``
+    const result = extractJsonFromAiResponse(str)
+    expect(result).toEqual({
+      response: '<p>x</p>',
+      debug: { recentlyPlayedGames: [], topPlayedGames: [] },
+    })
+  })
+
+  it('parses JSON after a short preamble', () => {
+    const str = 'Here you go:\n{"ok": true}\nThanks!'
+    const result = extractJsonFromAiResponse(str)
+    expect(result).toEqual({ ok: true })
+  })
+
   it('parses raw JSON object string', () => {
     const str = '{"b": "hello"}'
     const result = extractJsonFromAiResponse(str)

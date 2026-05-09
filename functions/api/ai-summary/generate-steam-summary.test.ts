@@ -4,7 +4,7 @@ import generateSteamSummary from './generate-steam-summary.js'
 type FetchCallInit = { body?: string; method?: string; headers?: Record<string, string> }
 
 vi.mock('firebase-functions', () => ({
-  logger: { error: vi.fn() },
+  logger: { error: vi.fn(), warn: vi.fn() },
 }))
 
 const assistantJson = (text: string) =>
@@ -155,6 +155,7 @@ describe('generateSteamSummary', () => {
         'Model response was not valid JSON (no markdown block or raw JSON)',
       )
     }
+    expect(logger.warn).toHaveBeenCalled()
     expect(logger.error).toHaveBeenCalled()
   })
 
