@@ -69,15 +69,6 @@ Total Games Owned: ${metrics.find(m => m.id === 'owned-games-count')?.value || 0
     const responseText = await requestAiSummaryCompletion({ apiKey, userMessage: prompt })
     const parsed = extractJsonFromAiResponse<{ response?: unknown }>(responseText)
     if (!parsed) {
-      const maxPreview = 600
-      const preview =
-        responseText.length > maxPreview
-          ? `${responseText.slice(0, maxPreview)}…`
-          : responseText
-      logger.warn('Steam AI summary: unparseable model text (expected JSON)', {
-        textLength: responseText.length,
-        textPreview: preview,
-      })
       throw new Error('Model response was not valid JSON (no markdown block or raw JSON)')
     }
     const raw = parsed.response

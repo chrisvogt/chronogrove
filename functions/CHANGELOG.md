@@ -19,12 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **AI summaries** — **`extract-json-from-ai-response`** uses a greedy **` ```json `** fence capture (avoids truncating when the model echoes fence-like characters) and **`jsonrepair`** after strict **`JSON.parse`** so common LLM JSON defects in **`response`** HTML (unescaped quotes, raw newlines in strings) still parse. Steam and Goodreads prompts add explicit JSON string-safety rules.
 
+### Removed
+
+- **AI summaries** — Dropped **`logger.warn`** + model **`textPreview`** on JSON parse failure (avoid logging user-facing summary text to Cloud Logging; **`logger.error`** on the thrown error remains).
+
 ## [0.30.6] - 2026-05-09
 
 ### Fixed
 
 - **AI summaries (Anthropic)** — **`extractJsonFromAiResponse`** parses the full markdown JSON fence so nested objects (e.g. Steam **`debug`**) no longer break extraction; the previous non-greedy inner-brace regex truncated valid model output. Added fallbacks: generic fenced blocks, whole-string JSON, and outermost JSON object extraction when the model adds a short preamble.
-- **Observability** — **`generate-steam-summary`** and **`generate-goodreads-summary`** log **`logger.warn`** with **`textLength`** and a bounded **`textPreview`** when assistant text is not parseable JSON.
 
 ### Security
 
@@ -38,7 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - **`extract-json-from-ai-response`** — Nested **`debug`** inside a markdown **`json`** code fence; JSON object after a short preamble.
-- **`generate-steam-summary`** — **`logger.warn`** mock for parse-failure path.
 - **`create-express-app.onboarding`** — Uid mismatch warning expects **`sessionUidPrefix`** / **`bearerUidPrefix`**.
 
 ## [0.30.5] - 2026-05-08
