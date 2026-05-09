@@ -65,5 +65,5 @@ See `.env.template` for the full list of variable names. The same names are used
 
 ## After setup
 
-- **Deploy:** `firebase deploy --only functions`
-- **Local testing:** From repo root, `firebase emulators:start --only functions`, or `pnpm --filter chronogrove-functions run serve` (or from `functions/`, `pnpm run serve`)
+- **Deploy:** `firebase deploy --only functions` (runs **`predeploy` → `build`**; **`lib/`** is up to date).
+- **Local testing:** The emulator loads compiled output from **`functions/lib/`** (see **`main`** in **`package.json`**), which is **gitignored**. After editing TypeScript, run **`pnpm --filter chronogrove-functions run build`** before **`firebase emulators:start`**, or start emulators via **`pnpm --filter chronogrove-functions start`** ( **`prestart`** runs **`build`** ), or use repo **`pnpm run dev:full`** (builds functions first). Plain **`firebase emulators:start`** does **not** run **`predeploy`**, so a stale **`lib/`** can mask fixes until you rebuild.

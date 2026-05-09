@@ -7,6 +7,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc && node -e \"const fs=require('fs'); fs.cpSync('queries','lib/queries',{recursive:true}); fs.cpSync('widgets/queries','lib/widgets/queries',{recursive:true})\"",
+    "prestart": "pnpm run build",
     "deploy": "firebase deploy --only functions",
     "lint": "eslint .",
     "logs": "firebase functions:log",
