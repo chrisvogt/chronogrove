@@ -27,14 +27,14 @@ vi.mock('../api/steam/get-recently-played-games.js', () => ({
   default: vi.fn(),
 }))
 
-vi.mock('../api/gemini/generate-steam-summary.js', () => ({
+vi.mock('../api/ai-summary/generate-steam-summary.js', () => ({
   default: vi.fn(),
 }))
 
 import getOwnedGames from '../api/steam/get-owned-games.js'
 import getPlayerSummary from '../api/steam/get-player-summary.js'
 import getRecentlyPlayedGames from '../api/steam/get-recently-played-games.js'
-import generateSteamSummary from '../api/gemini/generate-steam-summary.js'
+import generateSteamSummary from '../api/ai-summary/generate-steam-summary.js'
 
 describe('syncSteamData', () => {
   let documentStore: DocumentStore

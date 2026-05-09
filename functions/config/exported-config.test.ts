@@ -22,6 +22,7 @@ describe('exported-config', () => {
       expect(CONFIG_PATH_TO_ENV['discogs.oauth_callback_url']).toBe('DISCOGS_OAUTH_CALLBACK_URL')
       expect(CONFIG_PATH_TO_ENV['github.app_client_id']).toBe('GITHUB_APP_CLIENT_ID')
       expect(CONFIG_PATH_TO_ENV['github.oauth_callback_url']).toBe('GITHUB_OAUTH_CALLBACK_URL')
+      expect(CONFIG_PATH_TO_ENV['anthropic.api_key']).toBe('ANTHROPIC_API_KEY')
     })
   })
 

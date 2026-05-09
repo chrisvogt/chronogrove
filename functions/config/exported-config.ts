@@ -5,7 +5,7 @@ export const CONFIG_PATH_TO_ENV: Record<string, string> = {
   'auth.client_api_key': 'CLIENT_API_KEY',
   'auth.client_auth_domain': 'CLIENT_AUTH_DOMAIN',
   'auth.client_project_id': 'CLIENT_PROJECT_ID',
-  'gemini.api_key': 'GEMINI_API_KEY',
+  'anthropic.api_key': 'ANTHROPIC_API_KEY',
   'storage.firestore_database_url': 'STORAGE_FIRESTORE_DATABASE_URL',
   'storage.cloud_storage_images_bucket': 'CLOUD_STORAGE_IMAGES_BUCKET',
   'storage.image_cdn_base_url': 'IMAGE_CDN_BASE_URL',

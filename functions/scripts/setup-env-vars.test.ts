@@ -21,8 +21,8 @@ describe('setup-env-vars.js', () => {
     
     // Mock fs.readFileSync to return a mock runtime config
     fs.readFileSync.mockReturnValue(JSON.stringify({
-      gemini: {
-        api_key: 'test-gemini-key'
+      anthropic: {
+        api_key: 'test-anthropic-key'
       },
       storage: {
         firestore_database_url: 'https://test.firebaseio.com',
@@ -93,8 +93,8 @@ describe('setup-env-vars.js', () => {
 
   it('should handle missing values gracefully', () => {
     fs.readFileSync.mockReturnValue(JSON.stringify({
-      gemini: {
-        api_key: 'test-gemini-key'
+      anthropic: {
+        api_key: 'test-anthropic-key'
       }
       // Missing other configs
     }))

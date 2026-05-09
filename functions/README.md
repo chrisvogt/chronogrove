@@ -5,7 +5,7 @@ Provider-neutral backend for Chronogrove: an Express app that serves widget and 
 ## Directory layout
 
 - **`lib/`** – Shared helpers and config: widget content getters, constants, exported-config mapping, utilities.
-- **`api/`** – External API clients (Goodreads, Spotify, Steam, Discogs, Instagram, Flickr, Google Books, Gemini, Cloud Storage).
+- **`api/`** – External API clients (Goodreads, Spotify, Steam, Discogs, Instagram, Flickr, Google Books, AI summary helpers, Cloud Storage).
 - **`adapters/`** – Concrete implementations for backend seams such as document storage and media storage.
 - **`bootstrap/`** – Provider selection and backend composition wiring.
 - **`jobs/`** – Sync jobs (e.g. `sync-spotify-data`, `sync-goodreads-data`) and user lifecycle (create-user, delete-user).

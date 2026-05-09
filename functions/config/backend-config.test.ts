@@ -34,7 +34,7 @@ describe('backend config', () => {
     delete process.env.GOODREADS_API_KEY
     delete process.env.GOODREADS_USER_ID
     delete process.env.GOOGLE_BOOKS_API_KEY
-    delete process.env.GEMINI_API_KEY
+    delete process.env.ANTHROPIC_API_KEY
     delete process.env.INSTAGRAM_ACCESS_TOKEN
     delete process.env.INSTAGRAM_USER_ID
     delete process.env.SPOTIFY_CLIENT_ID
@@ -117,7 +117,7 @@ describe('backend config', () => {
     process.env.GOODREADS_API_KEY = 'goodreads-key'
     process.env.GOODREADS_USER_ID = 'goodreads-user'
     process.env.GOOGLE_BOOKS_API_KEY = 'google-key'
-    process.env.GEMINI_API_KEY = 'gemini-key'
+    process.env.ANTHROPIC_API_KEY = 'anthropic-key'
     process.env.INSTAGRAM_ACCESS_TOKEN = 'ig-token'
     process.env.INSTAGRAM_USER_ID = 'ig-user-id'
     process.env.SPOTIFY_CLIENT_ID = 'spotify-id'
@@ -130,7 +130,7 @@ describe('backend config', () => {
     const {
       getDiscogsConfig,
       getFlickrConfig,
-      getGeminiApiKey,
+      getAiSummaryApiKey,
       getGitHubConfig,
       getGoodreadsConfig,
       getGoogleBooksApiKey,
@@ -145,7 +145,7 @@ describe('backend config', () => {
     expect(getGitHubConfig()).toEqual({ accessToken: 'github-token', username: 'github-user' })
     expect(getGoodreadsConfig()).toEqual({ apiKey: 'goodreads-key', userId: 'goodreads-user' })
     expect(getGoogleBooksApiKey()).toBe('google-key')
-    expect(getGeminiApiKey()).toBe('gemini-key')
+    expect(getAiSummaryApiKey()).toBe('anthropic-key')
     expect(getInstagramAccessToken()).toBe('ig-token')
     expect(getInstagramUserId()).toBe('ig-user-id')
     expect(getSpotifyConfig()).toEqual({
