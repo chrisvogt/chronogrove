@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CORS (`/api`)** — **`*.chrisvogt.me`** origins are still allowed for personal-site and tenant API hosts, but the **`metrics`** label on **`chrisvogt.me`** is excluded (sunset operator hostname). Allowlist logic lives in **`app/api-cors-allowlist.ts`** with unit tests; integration tests use **`https://console.chronogrove.com`** as a sample allowed Origin.
 
+### Changed
+
+- **Local emulators** — **`pnpm start`** in **`functions/`** runs **`prestart` → `build`** so **`lib/`** matches TypeScript before **`firebase emulators:start`**. Root **`pnpm run dev:full`** builds functions once before starting emulators. **`firebase emulators:start` alone** still does not compile; **`ENVIRONMENT_SETUP.md`** documents the stale-**`lib/`** pitfall.
+
 ## [0.30.6] - 2026-05-09
 
 ### Fixed
