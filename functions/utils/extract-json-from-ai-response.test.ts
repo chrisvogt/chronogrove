@@ -52,19 +52,14 @@ describe('extractJsonFromAiResponse', () => {
     expect(result).toEqual({ b: 'hello' })
   })
 
-  it('returns null for invalid markdown JSON', () => {
-    const str = '```json\n{ broken }\n```'
-    const result = extractJsonFromAiResponse(str)
-    expect(result).toBeNull()
+  it('returns null for empty or unparsable json markdown fence body', () => {
+    // Empty fenced body: jsonrepair can turn many broken `{...}` snippets into objects, so do not use those to assert null.
+    expect(extractJsonFromAiResponse('```json\n\n```')).toBeNull()
   })
 
   it('returns null for primitives and non-objects', () => {
     expect(extractJsonFromAiResponse('123')).toBeNull()
     expect(extractJsonFromAiResponse('Just plain text')).toBeNull()
-  })
-
-  it('returns null for an empty json markdown fence body', () => {
-    expect(extractJsonFromAiResponse('```json\n\n```')).toBeNull()
   })
 
   it('returns null for empty or whitespace', () => {
