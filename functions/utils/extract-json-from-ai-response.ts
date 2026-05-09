@@ -24,9 +24,6 @@ const parseJsonObject = <T extends JsonObject>(text: string): T | null => {
  */
 const tryParseJsonObject = <T extends JsonObject = JsonObject>(raw: string): T | null => {
   const trimmed = raw.trim()
-  if (!trimmed) {
-    return null
-  }
 
   const direct = parseJsonObject<T>(trimmed)
   if (direct) {
