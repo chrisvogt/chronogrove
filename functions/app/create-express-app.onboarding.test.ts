@@ -638,8 +638,8 @@ describe('createExpressApp onboarding routes', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       'Session uid does not match Bearer uid; preferring Bearer and clearing session cookie',
       expect.objectContaining({
-        sessionUid: 'session-uid',
-        bearerUid: 'bearer-uid',
+        sessionUidPrefix: 'session-',
+        bearerUidPrefix: 'bearer-u',
       }),
     )
     expect(json).toHaveBeenCalledWith({ ok: true, available: false })

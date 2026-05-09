@@ -45,6 +45,7 @@ Instructions:
 - Refer to the player as “Chris”
 - Identify genre or gameplay patterns if possible (e.g. sandbox, survival, RPGs, base-building)
 - Return only **valid JSON** — no markdown or extra text
+- The **response** value is one JSON string: escape every ASCII double-quote (U+0022) inside it as a backslash plus double-quote. Do not use raw line breaks inside that string—keep the HTML on one line, or use a JSON-escaped newline (backslash followed by n). The full output must parse as JSON with no errors.
 
 Steam Profile: ${profile.displayName}  
 Total Games Owned: ${metrics.find(m => m.id === 'owned-games-count')?.value || 0}

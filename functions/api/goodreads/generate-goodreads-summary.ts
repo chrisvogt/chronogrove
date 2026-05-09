@@ -77,6 +77,7 @@ Return **valid JSON only** (no markdown fences, no commentary) using this shape:
 }
 
 Rules for the "response" string (strict — the UI is built for this):
+- **JSON-safe HTML:** escape every ASCII double-quote (U+0022) inside the **response** string as a backslash plus double-quote; do not use raw line breaks inside that string (one line of HTML, or JSON-escaped newline as backslash followed by n). The full payload must be valid JSON.
 - **Two or three** <p>...</p> elements, back-to-back, with nothing before, between, or after them (no wrapper <div>, no line breaks outside the tags).
 - **Third person** only, referring to him as **Chris** (e.g. “Chris tends to…”, “He often…”). Never “I”, “you”, or “the reader”.
 - Tone: calm, specific, a little editorial — like a sharp one-column blurb in a magazine, not marketing fluff. Avoid generic openers (“Chris loves books”, “As an avid reader”).

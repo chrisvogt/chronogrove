@@ -11,6 +11,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CORS (`/api`)** — **`*.chrisvogt.me`** origins are still allowed for personal-site and tenant API hosts, but the **`metrics`** label on **`chrisvogt.me`** is excluded (sunset operator hostname). Allowlist logic lives in **`app/api-cors-allowlist.ts`** with unit tests; integration tests use **`https://console.chronogrove.com`** as a sample allowed Origin.
 
+### Changed
+
+- **Local emulators** — **`pnpm start`** in **`functions/`** runs **`prestart` → `build`** so **`lib/`** matches TypeScript before **`firebase emulators:start`**. Root **`pnpm run dev:full`** builds functions once before starting emulators. **`firebase emulators:start` alone** still does not compile; **`ENVIRONMENT_SETUP.md`** documents the stale-**`lib/`** pitfall.
+
+### Fixed
+
+- **AI summaries** — **`extract-json-from-ai-response`** uses a greedy **` ```json `** fence capture (avoids truncating when the model echoes fence-like characters) and **`jsonrepair`** after strict **`JSON.parse`** so common LLM JSON defects in **`response`** HTML (unescaped quotes, raw newlines in strings) still parse. Steam and Goodreads prompts add explicit JSON string-safety rules.
+
+### Removed
+
+- **AI summaries** — Dropped **`logger.warn`** + model **`textPreview`** on JSON parse failure (avoid logging user-facing summary text to Cloud Logging; **`logger.error`** on the thrown error remains).
+
+## [0.30.6] - 2026-05-09
+
+### Fixed
+
+- **AI summaries (Anthropic)** — **`extractJsonFromAiResponse`** parses the full markdown JSON fence so nested objects (e.g. Steam **`debug`**) no longer break extraction; the previous non-greedy inner-brace regex truncated valid model output. Added fallbacks: generic fenced blocks, whole-string JSON, and outermost JSON object extraction when the model adds a short preamble.
+
+### Security
+
+- **Auth logging** — Successful session and Bearer verification no longer log **`uid`**, **`email`**, or **`emailVerified`**. Bearer success logs **`path`** only; session/Bearer uid mismatch logs **`sessionUidPrefix`** / **`bearerUidPrefix`** (first 8 characters) instead of full UIDs.
+
+### Changed
+
+- **Dependencies** — **express-rate-limit** `^8.5.1`, **firebase** `^12.13.0`, **firebase-admin** `^13.9.0`, **got** `^15.0.5`, **@typescript-eslint/eslint-plugin** / **parser** `^8.59.2`, **firebase-functions-test** `^3.5.0`.
+- **Workspace** — Root **turbo** `^2.9.12`; console **next** `16.2.6`, **react** / **react-dom** `^19.2.6`, **firebase** `^12.13.0`, **three** `^0.184.0`, **@types/three** `^0.184.1`.
+
+### Tests
+
+- **`extract-json-from-ai-response`** — Nested **`debug`** inside a markdown **`json`** code fence; JSON object after a short preamble.
+- **`create-express-app.onboarding`** — Uid mismatch warning expects **`sessionUidPrefix`** / **`bearerUidPrefix`**.
+
 ## [0.30.5] - 2026-05-08
 
 ### Changed

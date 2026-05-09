@@ -50,7 +50,7 @@ Follow the prompts; the CLI creates or updates the `FUNCTIONS_CONFIG_EXPORT` sec
 **Option B: Edit in Secret Manager**  
 1. Open Secret Manager in Cloud Console.  
 2. Open the secret **FUNCTIONS_CONFIG_EXPORT**.  
-3. **New version** → paste JSON that matches the shape expected by `config/exported-config.ts` (nested keys such as `github.access_token`, `spotify.client_id`, `auth.client_api_key`, etc.).  
+3. **New version** → paste JSON that matches the shape expected by `config/exported-config.ts` (nested objects; dotted names in the mapping are paths, not literal JSON keys). Examples: `github.access_token` → `{ "github": { "access_token": "..." } }`, `anthropic.api_key` → `{ "anthropic": { "api_key": "..." } }` (not a top-level `"anthropic.api_key"` property).  
 4. Save. New function instances will use the latest version.
 
 For production deploys, do not set disk-only storage values such as `storage.local_media_root` or `storage.media_store_backend=disk`. Leave those local-only overrides in `.env.local`; production defaults to GCS and uses the secret-backed storage config for Firestore, bucket, and media URL settings.
@@ -65,5 +65,5 @@ See `.env.template` for the full list of variable names. The same names are used
 
 ## After setup
 
-- **Deploy:** `firebase deploy --only functions`
-- **Local testing:** From repo root, `firebase emulators:start --only functions`, or `pnpm --filter chronogrove-functions run serve` (or from `functions/`, `pnpm run serve`)
+- **Deploy:** `firebase deploy --only functions` (runs **`predeploy` → `build`**; **`lib/`** is up to date).
+- **Local testing:** The emulator loads compiled output from **`functions/lib/`** (see **`main`** in **`package.json`**), which is **gitignored**. After editing TypeScript, run **`pnpm --filter chronogrove-functions run build`** before **`firebase emulators:start`**, or start emulators via **`pnpm --filter chronogrove-functions start`** ( **`prestart`** runs **`build`** ), or use repo **`pnpm run dev:full`** (builds functions first). Plain **`firebase emulators:start`** does **not** run **`predeploy`**, so a stale **`lib/`** can mask fixes until you rebuild.

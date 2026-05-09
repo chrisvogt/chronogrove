@@ -16,6 +16,12 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`baseUrl`** / **`tenant-api-root-map`** — Production-like hostname stubs use **`console.chronogrove.com`** and **`operator.unmapped.example`** instead of a private deploy host.
 - **`SettingsProfileIdentity`** — **`mockUser()`** includes a stable **`uid`**; username-save flows wait for **`Save username`** to become enabled instead of matching availability hint text.
 
+## [0.6.26] - 2026-05-09
+
+### Changed
+
+- **Dependencies** — **Next.js** `16.2.6`, **React** / **React DOM** `^19.2.6`, **Firebase** client `^12.13.0`, **three** `^0.184.0`, **@types/three** `^0.184.1`.
+
 ## [0.6.25] - 2026-05-04
 
 ### Fixed
