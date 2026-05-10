@@ -42,7 +42,7 @@ jobs:
         if: matrix.language == 'javascript-typescript'
         uses: pnpm/action-setup@v4
         with:
-          version: 10.32.1
+          version: 11.0.9
 
       - name: Setup Node.js
         if: matrix.language == 'javascript-typescript'
