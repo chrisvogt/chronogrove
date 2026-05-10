@@ -35,18 +35,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # Install workspace dependencies so CodeQL can resolve imports.
       - name: Install pnpm
         if: matrix.language == 'javascript-typescript'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.32.1
 
       - name: Setup Node.js
         if: matrix.language == 'javascript-typescript'
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: "pnpm"

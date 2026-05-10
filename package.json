@@ -11,8 +11,10 @@
     },
     "onlyBuiltDependencies": [
       "@firebase/util",
+      "esbuild",
       "protobufjs",
-      "sharp"
+      "sharp",
+      "unrs-resolver"
     ]
   },
   "scripts": {
