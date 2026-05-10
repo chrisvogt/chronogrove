@@ -2,6 +2,12 @@ packages:
   - apps/console
   - functions
 
-onlyBuiltDependencies:
-  - '@firebase/util'
-  - protobufjs
+overrides:
+  lodash: 4.18.1
+  vite: 8.0.5
+
+allowBuilds:
+  '@firebase/util': true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
