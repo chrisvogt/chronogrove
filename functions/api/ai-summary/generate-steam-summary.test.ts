@@ -145,17 +145,37 @@ describe('generateSteamSummary', () => {
       text: async () => assistantJson('not valid json at all'),
     })
 
-    try {
-      await generateSteamSummary(mockSteamData)
-      throw new Error('Expected rejection')
-    } catch (err) {
-      expect(err.message).toContain('Failed to generate AI summary')
-      expect(err.cause).toBeDefined()
-      expect((err as Error & { cause: Error }).cause.message).toBe(
-        'Model response was not valid JSON (no markdown block or raw JSON)',
-      )
-    }
-    expect(logger.error).toHaveBeenCalled()
+    await expect(generateSteamSummary(mockSteamData)).rejects.toMatchObject({
+      message: expect.stringContaining('Failed to generate AI summary'),
+      cause: {
+        message: 'Model response was not valid JSON (no markdown block or raw JSON)',
+      },
+    })
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error generating Steam AI summary:',
+      expect.any(Error),
+    )
+  })
+
+  it('should rethrow when fenced JSON is empty (unparseable object)', async () => {
+    const { logger } = await import('firebase-functions')
+    // Empty fenced body: jsonrepair can salvage many broken `{...}` snippets; use this for deterministic null from extractJsonFromAiResponse.
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => assistantJson('```json\n\n```'),
+    })
+
+    await expect(generateSteamSummary(mockSteamData)).rejects.toMatchObject({
+      message: expect.stringContaining('Failed to generate AI summary'),
+      cause: {
+        message: 'Model response was not valid JSON (no markdown block or raw JSON)',
+      },
+    })
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error generating Steam AI summary:',
+      expect.any(Error),
+    )
   })
 
   it('returns empty string when response JSON field is not a string', async () => {
