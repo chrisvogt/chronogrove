@@ -6,9 +6,6 @@
 #
 name: "CodeQL Advanced"
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   push:
     branches: [main]
@@ -44,6 +41,8 @@ jobs:
       - name: Install pnpm
         if: matrix.language == 'javascript-typescript'
         uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
 
       - name: Setup Node.js
         if: matrix.language == 'javascript-typescript'
