@@ -42,6 +42,42 @@ const initialRow = (): RowState => ({
   error: null,
 })
 
+function statusLabelForRow(s: RowState): string {
+  if (s.loading) {
+    return '…'
+  }
+  if (s.error) {
+    return 'Error'
+  }
+  if (s.httpStatus != null) {
+    return String(s.httpStatus)
+  }
+  return '—'
+}
+
+function okClassForRow(s: RowState): string {
+  if (s.loading) {
+    return styles.pending ?? ''
+  }
+  if (s.ok) {
+    return styles.cellOk ?? ''
+  }
+  if (s.error || s.ok === false) {
+    return styles.cellBad ?? ''
+  }
+  return ''
+}
+
+function latencyLabelForRow(s: RowState): string {
+  if (s.loading) {
+    return '…'
+  }
+  if (s.ms != null) {
+    return `${s.ms}ms`
+  }
+  return '—'
+}
+
 export function StatusSection() {
   const { user } = useAuth()
   const baseUrl = getAppBaseUrl()
@@ -109,7 +145,7 @@ export function StatusSection() {
   }, [baseUrl, activeRoutes])
 
   useEffect(() => {
-    void runChecks()
+    runChecks().catch(() => undefined)
   }, [runChecks])
 
   return (
@@ -135,7 +171,14 @@ export function StatusSection() {
             </>
           )}
         </p>
-        <button type="button" className={styles.refresh} onClick={() => void runChecks()} disabled={checking}>
+        <button
+          type="button"
+          className={styles.refresh}
+          onClick={() => {
+            runChecks().catch(() => undefined)
+          }}
+          disabled={checking}
+        >
           {checking ? 'Checking…' : 'Refresh'}
         </button>
       </div>
@@ -153,10 +196,8 @@ export function StatusSection() {
           <tbody>
             {activeRoutes.map((r) => {
               const s = rows[r.id] ?? initialRow()
-              const statusLabel =
-                s.loading ? '…' : s.error ? 'Error' : s.httpStatus != null ? String(s.httpStatus) : '—'
-              const okClass =
-                s.loading ? styles.pending : s.ok ? styles.cellOk : s.error || s.ok === false ? styles.cellBad : ''
+              const statusLabel = statusLabelForRow(s)
+              const okClass = okClassForRow(s)
               return (
                 <tr key={r.id}>
                   <td>
@@ -172,7 +213,7 @@ export function StatusSection() {
                       statusLabel
                     )}
                   </td>
-                  <td>{s.loading ? '…' : s.ms != null ? `${s.ms}ms` : '—'}</td>
+                  <td>{latencyLabelForRow(s)}</td>
                   <td className={styles.syncedCell}>
                     {s.loading ? '…' : formatSyncedDisplay(s.lastSynced)}
                   </td>

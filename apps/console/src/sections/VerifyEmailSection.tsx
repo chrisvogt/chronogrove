@@ -8,6 +8,16 @@ import { useAuth } from '../auth/AuthContext'
 import { mustVerifyEmailBeforeConsole } from '../lib/emailVerificationGate'
 import styles from './VerifyEmailSection.module.css'
 
+function applyActionCodeErrorMessage(e: { code?: string; message?: string }): string {
+  if (e.code === 'auth/expired-action-code') {
+    return 'This link has expired. Sign in and use “Resend verification email” below.'
+  }
+  if (e.code === 'auth/invalid-action-code') {
+    return 'This verification link is invalid or was already used.'
+  }
+  return e.message ?? 'Could not verify your email.'
+}
+
 export function VerifyEmailSection() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -37,13 +47,7 @@ export function VerifyEmailSection() {
       })
       .catch((e: { code?: string; message?: string }) => {
         if (cancelled) return
-        const msg =
-          e.code === 'auth/expired-action-code'
-            ? 'This link has expired. Sign in and use “Resend verification email” below.'
-            : e.code === 'auth/invalid-action-code'
-              ? 'This verification link is invalid or was already used.'
-              : e.message ?? 'Could not verify your email.'
-        setError(msg)
+        setError(applyActionCodeErrorMessage(e))
         setCodeHandled(true)
       })
       .finally(() => {
@@ -143,13 +147,21 @@ export function VerifyEmailSection() {
             type="button"
             className={styles.button}
             disabled={actionLoading}
-            onClick={() => void onResend()}
+            onClick={() => {
+              onResend().catch(() => undefined)
+            }}
           >
             Resend verification email
           </button>
         </div>
         <p className={styles.linkMuted}>
-          <button type="button" className={styles.link} onClick={() => void logout()}>
+          <button
+            type="button"
+            className={styles.link}
+            onClick={() => {
+              logout().catch(() => undefined)
+            }}
+          >
             Sign out
           </button>
         </p>

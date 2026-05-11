@@ -25,6 +25,45 @@ async function listFilesRecursive(rootDirectory: string, currentDirectory = ''):
   return nestedFiles.flat()
 }
 
+function rejectAsError(reason: unknown): Error {
+  return reason instanceof Error ? reason : new Error(String(reason))
+}
+
+async function downloadHttpsToFile(
+  mediaURL: string,
+  absoluteDestinationPath: string,
+  destinationPath: string,
+  id: string
+): Promise<void> {
+  await fs.mkdir(path.dirname(absoluteDestinationPath), { recursive: true })
+
+  await new Promise<void>((resolve, reject) => {
+    https
+      .get(mediaURL, (res) => {
+        const writeStream = createWriteStream(absoluteDestinationPath)
+        res.pipe(writeStream)
+
+        const onFinish = () => {
+          writeStream.close((closeErr) => {
+            if (closeErr) {
+              reject(new Error(`Failed to upload ${destinationPath}: ${closeErr.message}`))
+              return
+            }
+            resolve()
+          })
+        }
+
+        writeStream.on('finish', onFinish)
+        writeStream.on('error', (err) => {
+          reject(new Error(`Failed to upload ${destinationPath}: ${err.message}`))
+        })
+      })
+      .on('error', (err) => {
+        reject(new Error(`Failed to download media for ${id}: ${err.message}`))
+      })
+  })
+}
+
 export class LocalDiskMediaStore implements MediaStore {
   constructor(private readonly rootDirectory: string) {}
 
@@ -40,42 +79,23 @@ export class LocalDiskMediaStore implements MediaStore {
     }
   }
 
-  fetchAndStore({ destinationPath, mediaURL, id }: MediaDescriptor): Promise<StoredMedia> {
-    return new Promise((resolve, reject) => {
-      if (!mediaURL) {
-        reject(new Error(`Missing media to download for ${id}.`))
-        return
-      }
+  async fetchAndStore({ destinationPath, mediaURL, id }: MediaDescriptor): Promise<StoredMedia> {
+    if (!mediaURL) {
+      throw new Error(`Missing media to download for ${id}.`)
+    }
 
-      void (async () => {
-        const absoluteDestinationPath = this.resolveAbsolutePath(destinationPath)
+    const absoluteDestinationPath = this.resolveAbsolutePath(destinationPath)
 
-        await fs.mkdir(path.dirname(absoluteDestinationPath), { recursive: true })
+    try {
+      await downloadHttpsToFile(mediaURL, absoluteDestinationPath, destinationPath, id)
+    } catch (error) {
+      throw rejectAsError(error)
+    }
 
-        https.get(mediaURL, (res) => {
-          const writeStream = createWriteStream(absoluteDestinationPath)
-
-          res.pipe(writeStream)
-
-          writeStream.on('finish', () => {
-            writeStream.close(() => {
-              resolve({
-                id,
-                fileName: destinationPath,
-              })
-            })
-          })
-
-          writeStream.on('error', (err) => {
-            reject(new Error(`Failed to upload ${destinationPath}: ${err.message}`))
-          })
-        }).on('error', (err) => {
-          reject(new Error(`Failed to download media for ${id}: ${err.message}`))
-        })
-      })().catch((error) => {
-        reject(error)
-      })
-    })
+    return {
+      id,
+      fileName: destinationPath,
+    }
   }
 
   describe() {

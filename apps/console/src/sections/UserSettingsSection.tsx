@@ -86,7 +86,9 @@ export function UserSettingsSection() {
           value={activeTheme}
           disabled={saving}
           labelledBy="appearance-heading"
-          onSelect={(id) => void saveTheme(id)}
+          onSelect={(id) => {
+            saveTheme(id).catch(() => undefined)
+          }}
         />
 
         {saving ? <p className={styles.hint}>Saving…</p> : null}

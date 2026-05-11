@@ -139,7 +139,11 @@ function OverviewProviderCard({
     <article className={`${styles.card} ${s.loading ? styles.cardLoading : ''}`} style={cardStyle}>
       <div className={styles.cardHeader}>
         <span className={styles.providerName}>{provider.label}</span>
-        <span className={`${styles.dot} ${dotClassForTone(tone)}`} aria-label={dotAriaLabel(s)} />
+        <span
+          className={`${styles.dot} ${dotClassForTone(tone)}`}
+          role="img"
+          aria-label={dotAriaLabel(s)}
+        />
       </div>
 
       {body}
