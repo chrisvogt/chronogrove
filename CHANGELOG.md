@@ -15,6 +15,8 @@ Package-specific changes:
 
 ### Changed
 
+- **Workspace** — **Functions 0.30.7** and **Console 0.6.27**: Steam AI summary prompt slimmed so default Anthropic **`max_tokens`** no longer truncates JSON in production; console **`SettingsProfileIdentity`** clear-username test hardened for CI; functions release also includes CORS allowlist tweak for **`chrisvogt.me`**, emulator **`prestart` → `build`**, and AI summary **`jsonrepair`** / logging adjustments documented in **[functions/CHANGELOG.md](functions/CHANGELOG.md)**. See [functions/CHANGELOG.md](functions/CHANGELOG.md) and [apps/console/CHANGELOG.md](apps/console/CHANGELOG.md).
+
 - **Workspace** — **Console 0.6.25**: **Next.js** pinned to exact **`16.2.4`** so Firebase App Hosting’s **`@apphosting/adapter-nextjs`** CVE version check receives a valid semver (ranges like **`^16.2.4`** were mis-rejected and blocked deploy). Documented in **[docs/APP_HOSTING.md](docs/APP_HOSTING.md)** and **[apps/console/README.md](apps/console/README.md)**. See [apps/console/CHANGELOG.md](apps/console/CHANGELOG.md).
 
 - **Workspace** — **Functions 0.30.5**: AI summary provider swapped from Gemini to **Anthropic** (`claude-sonnet-4-6`); `@google/generative-ai` removed; `GEMINI_API_KEY` / `gemini.api_key` renamed to `ANTHROPIC_API_KEY` / `anthropic.api_key`; new `utils/ai-summary-messages.ts` direct HTTP client with `resolveMaxTokens` and 23 new unit tests. See [functions/CHANGELOG.md](functions/CHANGELOG.md).

@@ -491,7 +491,13 @@ describe('SettingsProfileIdentity', () => {
     render(<SettingsProfileIdentity user={mockUser()} apiSessionReady />)
     await waitFor(() => screen.getByPlaceholderText('your-username'))
 
-    fireEvent.change(screen.getByPlaceholderText('your-username'), { target: { value: '' } })
+    const nameInput = screen.getByPlaceholderText('your-username')
+    // Use userEvent + explicit waits: fireEvent.change + user.click can race on slow CI
+    // (click runs before React commits '', Save stays disabled, putJson never fires).
+    await user.clear(nameInput)
+    await waitFor(() => expect(nameInput).toHaveValue(''))
+    await waitUntilSaveUsernameEnabled()
+
     await user.click(screen.getByRole('button', { name: /save username/i }))
 
     await waitFor(() => {
