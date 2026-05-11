@@ -160,30 +160,33 @@ function normalizeExpressPathParam(param: unknown): string | undefined {
   return undefined
 }
 
-const MANUAL_SYNC_PROVIDER_FROM_PATH_JSON =
-  /^\/api\/widgets\/sync\/([^/]+)\/?$/u
-const MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM =
-  /^\/api\/widgets\/sync\/([^/]+)\/stream\/?$/u
+/** Match pathname suffix so provider still resolves when `req.path` includes a mount prefix (e.g. Functions emulator). */
+const MANUAL_SYNC_PROVIDER_FROM_PATH_JSON = /\/api\/widgets\/sync\/([^/]+)\/?$/u
+const MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM = /\/api\/widgets\/sync\/([^/]+)\/stream\/?$/u
 
 function parseManualSyncProviderSegmentFromRequest(
   req: express.Request,
   route: 'json' | 'stream',
 ): string | undefined {
   const re = route === 'stream' ? MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM : MANUAL_SYNC_PROVIDER_FROM_PATH_JSON
-  const pathStr = (req.path ?? '').split('?')[0] ?? ''
-  let m = pathStr.match(re)
-  let segment = m?.[1]?.trim()
-  if (segment) {
-    return segment.toLowerCase()
+  const tryPathname = (pathname: string): string | undefined => {
+    const pathStr = pathname.split('?')[0] ?? ''
+    const m = pathStr.match(re)
+    const segment = m?.[1]?.trim()
+    return segment ? segment.toLowerCase() : undefined
+  }
+
+  const fromReqPath = tryPathname(req.path ?? '')
+  if (fromReqPath) {
+    return fromReqPath
   }
   const orig = req.originalUrl ?? req.url
   if (orig) {
     try {
       const u = new URL(orig, 'http://localhost')
-      m = u.pathname.match(re)
-      segment = m?.[1]?.trim()
-      if (segment) {
-        return segment.toLowerCase()
+      const fromOrig = tryPathname(u.pathname)
+      if (fromOrig) {
+        return fromOrig
       }
     } catch {
       /* ignore malformed URL */

@@ -534,6 +534,56 @@ describe('createExpressApp route coverage', () => {
     )
   })
 
+  it('resolves manual sync stream provider when path includes Functions / emulator mount prefix', async () => {
+    const { runSyncForProvider } = await import('../services/sync-manual.js')
+    vi.mocked(runSyncForProvider).mockResolvedValueOnce({
+      afterJob: { jobId: 'j1', status: 'completed' },
+      beforeJob: { jobId: 'j1', status: 'queued' },
+      enqueue: { jobId: 'j1', status: 'enqueued' },
+      worker: { jobId: 'j1', result: 'SUCCESS' },
+    })
+
+    const { createExpressApp } = await import('./create-express-app.js')
+    const app = createExpressApp({
+      authService,
+      documentStore,
+      ensureRuntimeConfigApplied,
+      getClientAuthConfig,
+      logger,
+      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      syncJobQueue,
+    })
+
+    const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
+    const response = {
+      setHeader: vi.fn(),
+      write: vi.fn(),
+      end: vi.fn(),
+    }
+
+    const prefixedPath =
+      '/personal-stats-chrisvogt/us-central1/app/api/widgets/sync/flickr/stream'
+
+    await streamHandler(
+      {
+        params: {},
+        path: prefixedPath,
+        originalUrl: `${prefixedPath}?x=1`,
+      },
+      response,
+    )
+
+    expect(runSyncForProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'flickr',
+      }),
+    )
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'text/event-stream; charset=utf-8',
+    )
+  })
+
   it('prefers path-derived provider when req.params is a bogus non-syncable string (e.g. stream)', async () => {
     const { runSyncForProvider } = await import('../services/sync-manual.js')
     vi.mocked(runSyncForProvider).mockResolvedValueOnce({
