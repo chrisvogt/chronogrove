@@ -524,6 +524,136 @@ describe('SettingsProfileIdentity', () => {
     unmount()
     intervalSpy.mockRestore()
   })
+
+  it('DNS polling interval re-invokes check-domain (covers interval callback)', async () => {
+    setupLoad(sampleProgress({ customDomain: 'interval.coverage.test' }))
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      jsonResponse({ verified: false }) as Awaited<ReturnType<typeof fetch>>,
+    )
+
+    const realSetInterval = globalThis.setInterval.bind(globalThis)
+    const intervalSpy = vi.spyOn(globalThis, 'setInterval').mockImplementation((handler, timeout) => {
+      if (timeout === 15_000 && typeof handler === 'function') {
+        queueMicrotask(() => {
+          ;(handler as () => void)()
+        })
+        return 77_777 as unknown as ReturnType<typeof setInterval>
+      }
+      return realSetInterval(handler as TimerHandler, timeout as number)
+    })
+
+    try {
+      const user = userEvent.setup()
+      render(<SettingsProfileIdentity user={mockUser()} apiSessionReady />)
+      await waitFor(() => screen.getByRole('button', { name: /verify dns/i }))
+      await user.click(screen.getByRole('button', { name: /verify dns/i }))
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+      })
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/api/onboarding/check-domain?domain=interval.coverage.test'),
+        expect.objectContaining({ method: 'GET' }),
+      )
+    } finally {
+      intervalSpy.mockRestore()
+    }
+  })
+
+  it('shows generic load error when progress GET rejects with a non-Error', async () => {
+    getJson.mockRejectedValue('not-an-error-instance')
+    render(<SettingsProfileIdentity user={mockUser()} apiSessionReady />)
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/load failed/i)
+    })
+  })
+
+  it('re-fetches when Firebase user uid changes without dropping into full-page loading', async () => {
+    const userA = { ...mockUser(), uid: 'settings-uid-a' } as User
+    const userB = { ...mockUser(), uid: 'settings-uid-b' } as User
+
+    getJson.mockResolvedValueOnce(jsonResponse({ payload: sampleProgress({ username: 'alpha' }) }))
+    const { rerender } = render(<SettingsProfileIdentity user={userA} apiSessionReady />)
+    await waitFor(() => expect(screen.getByDisplayValue('alpha')).toBeInTheDocument())
+
+    getJson.mockResolvedValueOnce(jsonResponse({ payload: sampleProgress({ username: 'bravo' }) }))
+    rerender(<SettingsProfileIdentity user={userB} apiSessionReady />)
+
+    await waitFor(() => expect(screen.getByDisplayValue('bravo')).toBeInTheDocument())
+    expect(getJson).toHaveBeenCalled()
+  })
+
+  it('username save onClick swallows rejection when PUT throws (covers defensive catch)', async () => {
+    setupLoad(sampleProgress({ username: null, customDomain: null }))
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      jsonResponse({ available: true }) as Awaited<ReturnType<typeof fetch>>,
+    )
+    putJson.mockRejectedValue(new Error('network down'))
+
+    const user = userEvent.setup()
+    render(<SettingsProfileIdentity user={mockUser()} apiSessionReady />)
+    await waitFor(() => screen.getByPlaceholderText('your-username'))
+
+    fireEvent.change(screen.getByPlaceholderText('your-username'), {
+      target: { value: 'throwusr' },
+    })
+    await afterUsernameDebounce()
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    await waitUntilSaveUsernameEnabled()
+
+    await user.click(screen.getByRole('button', { name: /save username/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save username/i })).toBeEnabled()
+    })
+  })
+
+  it('domain save onClick swallows rejection when PUT throws (covers defensive catch)', async () => {
+    setupLoad(sampleProgress({ username: 'u', customDomain: null }))
+    putJson.mockRejectedValue(new Error('network down'))
+
+    render(<SettingsProfileIdentity user={mockUser()} apiSessionReady />)
+    await waitFor(() => screen.getByPlaceholderText('api.yourdomain.com'))
+
+    fireEvent.change(screen.getByPlaceholderText('api.yourdomain.com'), {
+      target: { value: 'api.throw.test' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save domain/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save domain/i })).toBeEnabled()
+    })
+  })
+
+  it('username save succeeds when PUT body JSON fails but response is OK (putOnboarding json catch)', async () => {
+    setupLoad(sampleProgress({ username: null, customDomain: null }))
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      jsonResponse({ available: true }) as Awaited<ReturnType<typeof fetch>>,
+    )
+    putJson.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error('malformed')),
+    } as unknown as Response)
+
+    const user = userEvent.setup()
+    render(<SettingsProfileIdentity user={mockUser()} apiSessionReady />)
+    await waitFor(() => screen.getByPlaceholderText('your-username'))
+
+    fireEvent.change(screen.getByPlaceholderText('your-username'), {
+      target: { value: 'jsonusr' },
+    })
+    await afterUsernameDebounce()
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    await waitUntilSaveUsernameEnabled()
+
+    await user.click(screen.getByRole('button', { name: /save username/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/username updated/i)).toBeInTheDocument()
+    })
+  })
 })
 
 describe('SettingsUsernameBlock (progressRef guard)', () => {

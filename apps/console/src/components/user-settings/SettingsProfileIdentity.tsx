@@ -121,7 +121,7 @@ export function SettingsUsernameBlock({
     }
     if (sanitized.length >= 3) {
       timerRef.current = setTimeout(() => {
-        checkUsername(sanitized).catch(() => {})
+        void checkUsername(sanitized)
       }, 500)
     }
   }
@@ -315,10 +315,10 @@ export function SettingsCustomDomainBlock({
 
   const startDnsCheck = () => {
     if (!domainDraft) return
-    checkDns(domainDraft).catch(() => {})
+    void checkDns(domainDraft)
     clearDnsVerificationTimers({ dnsTimerRef, dnsPollingRef })
     dnsPollingRef.current = setInterval(() => {
-      checkDns(domainDraft).catch(() => {})
+      void checkDns(domainDraft)
     }, 15000)
   }
 
@@ -528,7 +528,7 @@ export function SettingsProfileIdentity({
   useEffect(() => {
     if (!apiSessionReady) return
     if (!userRef.current) return
-    load().catch(() => {})
+    void load()
   }, [apiSessionReady, authIdentityKey, load])
 
   if (!apiSessionReady) {
