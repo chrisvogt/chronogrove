@@ -1181,6 +1181,61 @@ describe('fetchRecentlyReadBooks', () => {
     delete process.env.GOOGLE_BOOKS_API_KEY
   })
 
+  it('treats 429 with Quota exceeded message as quota without RESOURCE_EXHAUSTED status', async () => {
+    process.env.GOOGLE_BOOKS_API_KEY = 'test-google-books-api-key'
+    mockGot
+      .mockResolvedValueOnce({
+        body: '<GoodreadsResponse><reviews><review><read_at>2023-01-01</read_at><book><title>Quota Style</title><isbn13>9799999999999</isbn13></book><rating>4</rating></review></reviews></GoodreadsResponse>',
+      })
+      .mockRejectedValueOnce({
+        response: {
+          statusCode: 429,
+          body: JSON.stringify({
+            error: {
+              code: 429,
+              message: 'Quota exceeded for Queries per day',
+            },
+          }),
+        },
+      })
+    mockParseString.mockImplementation((xml, callback) => {
+      callback(null, {
+        GoodreadsResponse: {
+          reviews: [
+            {
+              review: [
+                {
+                  read_at: ['2023-01-01'],
+                  book: [{ title: ['Quota Style'], isbn13: ['9799999999999'] }],
+                  rating: ['4'],
+                },
+              ],
+            },
+          ],
+        },
+      })
+    })
+    mockPMap.mockImplementation(async (items, mapper, options) => {
+      if (options?.concurrency === 3) {
+        const results = []
+        for (let i = 0; i < items.length; i++) results.push(await mapper(items[i], i))
+        return results
+      }
+      return []
+    })
+    mockFetchBookFromGoogle.mockResolvedValue(null)
+    mockListStoredMedia.mockResolvedValue([])
+
+    const result = await fetchRecentlyReadBooks()
+
+    expect(result.books).toEqual([])
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Daily quota exceeded for Google Books API. Title/author fallback skipped.',
+      { message: 'Quota exceeded for Queries per day' },
+    )
+    delete process.env.GOOGLE_BOOKS_API_KEY
+  })
+
   it('handles invalid JSON string error body from Google Books volumes API during title fallback', async () => {
     process.env.GOOGLE_BOOKS_API_KEY = 'test-google-books-api-key'
     mockGot

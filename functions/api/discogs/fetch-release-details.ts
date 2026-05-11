@@ -13,11 +13,8 @@ function buildReleaseFetchUrl(
   if (oauth || resourceUrl.includes('token=')) {
     return resourceUrl
   }
-  if (!apiKey) {
-    throw new Error('Missing required environment variable: DISCOGS_API_KEY')
-  }
   const separator = resourceUrl.includes('?') ? '&' : '?'
-  return `${resourceUrl}${separator}token=${apiKey}`
+  return `${resourceUrl}${separator}token=${apiKey as string}`
 }
 
 type FetchAttemptResult =

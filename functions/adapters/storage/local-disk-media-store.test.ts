@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, promises as fsPromises } from 'fs'
 import { tmpdir } from 'os'
 import path from 'path'
 import { Readable } from 'stream'
@@ -145,6 +145,20 @@ describe('LocalDiskMediaStore', () => {
         mediaURL: 'https://example.com/test.txt',
       }),
     ).rejects.toThrow(/Failed to upload nested\/test\.txt: /)
+  })
+
+  it('wraps non-Error mkdir failures via rejectAsError', async () => {
+    const mkdirSpy = vi.spyOn(fsPromises, 'mkdir').mockRejectedValueOnce('disk full')
+
+    await expect(
+      adapter.fetchAndStore({
+        destinationPath: 'nested/mkdir-fail.txt',
+        id: 'media-mkdir',
+        mediaURL: 'https://example.com/x.bin',
+      }),
+    ).rejects.toThrow('disk full')
+
+    mkdirSpy.mockRestore()
   })
 
   it('rejects when mkdir fails because rootDirectory is not a directory', async () => {

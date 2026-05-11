@@ -122,6 +122,16 @@ describe('fetchFullReadShelfForAi', () => {
     await expect(fetchFullReadShelfForAi()).rejects.toThrow('invalid xml')
   })
 
+  it('wraps non-Error parse failures as Error', async () => {
+    vi.mocked(parseStringMock).mockImplementationOnce((body, cb) => {
+      cb('not an Error instance', undefined)
+    })
+
+    vi.mocked(got).mockResolvedValueOnce({ body: '<x/>' } as never)
+
+    await expect(fetchFullReadShelfForAi()).rejects.toThrow('not an Error instance')
+  })
+
   it('drops reviews with no identifiable book and uses date_added when read_at is too short', async () => {
     const body = `<GoodreadsResponse><reviews>
       <review><read_at>n/a</read_at><date_added>2019-07-04</date_added><rating>5</rating>

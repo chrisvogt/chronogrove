@@ -80,7 +80,7 @@ const buildSuccessResponse = <TPayload>(
     payload,
   })
 
-function formatUnknownFailureMessage(err: unknown): string {
+export function formatUnknownFailureMessage(err: unknown): string {
   if (err instanceof Error) {
     return err.message
   }
@@ -149,7 +149,7 @@ function hostPortFirst(hostOrHostPort: string): string {
 }
 
 /** Express 5 may surface a captured segment as `string[]`; using only `typeof x === 'string'` yields undefined and false 400s on sync routes. */
-function normalizeExpressPathParam(param: unknown): string | undefined {
+export function normalizeExpressPathParam(param: unknown): string | undefined {
   if (typeof param === 'string') {
     return param
   }
@@ -164,7 +164,7 @@ function normalizeExpressPathParam(param: unknown): string | undefined {
 const MANUAL_SYNC_PROVIDER_FROM_PATH_JSON = /\/api\/widgets\/sync\/([^/]+)\/?$/u
 const MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM = /\/api\/widgets\/sync\/([^/]+)\/stream\/?$/u
 
-function parseManualSyncProviderSegmentFromRequest(
+export function parseManualSyncProviderSegmentFromRequest(
   req: express.Request,
   route: 'json' | 'stream',
 ): string | undefined {
@@ -201,7 +201,7 @@ function parseManualSyncProviderSegmentFromRequest(
  * sync provider so a bogus `req.params.provider` (e.g. a literal `stream` segment) cannot override
  * the URL the client actually requested — a pattern that can look like a strict 50/50 in dev.
  */
-function resolveManualSyncProvider(
+export function resolveManualSyncProvider(
   req: express.Request,
   route: 'json' | 'stream',
 ): string | undefined {
@@ -223,7 +223,8 @@ function resolveManualSyncProvider(
  * SSR status probes call the Functions URL directly; there the Host is infrastructure-only,
  * so the console-sent probe header is applied.
  */
-function isInfrastructurePublicWidgetHostname(hostname: string): boolean {
+/** @internal Exported for tests — loopback / empty labels gate `x-chronogrove-public-host`. */
+export function isInfrastructurePublicWidgetHostname(hostname: string): boolean {
   const h = hostname.toLowerCase()
   if (!h) {
     return true

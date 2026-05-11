@@ -217,6 +217,14 @@ describe('generateSteamSummary', () => {
     )
   })
 
+  it('uses string message property on non-Error rejections', async () => {
+    mockFetch.mockRejectedValueOnce({ message: 'from nested message' })
+
+    await expect(generateSteamSummary(mockSteamData)).rejects.toThrow(
+      'Failed to generate AI summary: from nested message',
+    )
+  })
+
   it('uses Unknown error when JSON.stringify fails on a thrown value', async () => {
     const circular: Record<string, unknown> = { a: 1 }
     circular.self = circular
