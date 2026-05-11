@@ -252,6 +252,14 @@ describe('generateGoodreadsSummary', () => {
     })
   })
 
+  it('uses string message field on third-party style error objects (matches Steam / sync queue helpers)', async () => {
+    mockFetch.mockRejectedValueOnce({ message: 'Upstream rate limit' })
+
+    await expect(
+      generateGoodreadsSummary({ collections: { recentlyReadBooks: [] }, profile: {} }),
+    ).rejects.toThrow('Failed to generate AI summary: Upstream rate limit')
+  })
+
   it('formats wrapped errors with JSON and Unknown fallbacks like other AI summaries', async () => {
     mockFetch.mockRejectedValueOnce({ message: false })
 
