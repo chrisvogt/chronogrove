@@ -52,7 +52,7 @@ describe('getTopTracks', () => {
       headers: { Authorization: 'Bearer test-access-token' },
       searchParams: {
         time_range: 'short_term',
-        limit: 12
+        limit: 24
       }
     })
 
