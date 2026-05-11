@@ -208,4 +208,22 @@ describe('generateSteamSummary', () => {
       'Failed to generate AI summary: AI summary API error (401): invalid x-api-key',
     )
   })
+
+  it('formats unknown errors with object message and JSON fallbacks in the thrown wrapper', async () => {
+    mockFetch.mockRejectedValueOnce({ message: 404 })
+
+    await expect(generateSteamSummary(mockSteamData)).rejects.toThrow(
+      'Failed to generate AI summary: {"message":404}',
+    )
+  })
+
+  it('uses Unknown error when JSON.stringify fails on a thrown value', async () => {
+    const circular: Record<string, unknown> = { a: 1 }
+    circular.self = circular
+    mockFetch.mockRejectedValueOnce(circular)
+
+    await expect(generateSteamSummary(mockSteamData)).rejects.toThrow(
+      'Failed to generate AI summary: Unknown error',
+    )
+  })
 })

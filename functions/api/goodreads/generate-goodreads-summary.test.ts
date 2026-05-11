@@ -252,6 +252,24 @@ describe('generateGoodreadsSummary', () => {
     })
   })
 
+  it('formats wrapped errors with JSON and Unknown fallbacks like other AI summaries', async () => {
+    mockFetch.mockRejectedValueOnce({ message: false })
+
+    await expect(
+      generateGoodreadsSummary({ collections: { recentlyReadBooks: [] }, profile: {} }),
+    ).rejects.toThrow('Failed to generate AI summary: {"message":false}')
+  })
+
+  it('uses Unknown error in the wrapper when JSON.stringify fails', async () => {
+    const circular: Record<string, unknown> = { x: 1 }
+    circular.self = circular
+    mockFetch.mockRejectedValueOnce(circular)
+
+    await expect(
+      generateGoodreadsSummary({ collections: { recentlyReadBooks: [] }, profile: {} }),
+    ).rejects.toThrow('Failed to generate AI summary: Unknown error')
+  })
+
   it('should handle response missing required fields', async () => {
     const mockGoodreadsData = {
       collections: { recentlyReadBooks: [] },
@@ -324,6 +342,18 @@ describe('generateGoodreadsSummary', () => {
     })
 
     expect(result).toBe('Plain fallback copy.')
+  })
+
+  it('warns when the model returns exactly one paragraph tag', async () => {
+    mockAiSummaryText('{"response": "<p>Only one paragraph.</p>", "debug": {}}')
+
+    const result = await generateGoodreadsSummary({
+      collections: { recentlyReadBooks: [] },
+      profile: { displayName: 'Chris Vogt' },
+    })
+
+    expect(result).toBe('<p>Only one paragraph.</p>')
+    expect(logger.warn).toHaveBeenCalledWith('Goodreads AI summary contained only one <p>.')
   })
 
   it('keeps all <p> elements when the model returns two or three paragraphs', async () => {

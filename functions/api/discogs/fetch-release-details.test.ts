@@ -99,6 +99,27 @@ describe('fetchReleaseDetails', () => {
     expect(result).toEqual(mockReleaseData)
   })
 
+  it('appends token with & when the resource URL already has query parameters', async () => {
+    vi.stubEnv('DISCOGS_API_KEY', 'test-api-key')
+
+    const fetchReleaseDetails = (await import('./fetch-release-details.js')).default
+    const mockReleaseData = { id: 7, title: 'With Query' }
+
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockReleaseData,
+    })
+
+    await fetchReleaseDetails('https://api.discogs.com/releases/7?curr_abbr=USD', '7')
+
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.discogs.com/releases/7?curr_abbr=USD&token=test-api-key',
+      expect.objectContaining({
+        headers: { 'User-Agent': chronogroveHttpUserAgent },
+      }),
+    )
+  })
+
   it('should return null when API request fails', async () => {
     vi.stubEnv('DISCOGS_API_KEY', 'test-api-key')
     

@@ -225,6 +225,81 @@ describe('fetchPhotos', () => {
     expect(mockLogger.error).toHaveBeenCalledWith('Error fetching Flickr photos (OAuth):', err)
   })
 
+  it('stringifies numeric or boolean Flickr fields for URLs and ids', async () => {
+    mockGot.mockResolvedValue({
+      body: {
+        photos: {
+          photo: [
+            {
+              id: 42,
+              title: true,
+              description: { _content: '' },
+              datetaken: 2024,
+              ownername: false,
+              url_q: 'q.jpg',
+              url_m: 'm.jpg',
+              url_l: 'l.jpg',
+            },
+          ],
+          total: 1,
+          page: 1,
+          pages: 1,
+        },
+      },
+    })
+
+    const result = await fetchPhotos()
+
+    expect(result.photos[0]).toEqual({
+      id: '42',
+      title: 'true',
+      description: '',
+      dateTaken: '2024',
+      ownerName: 'false',
+      thumbnailUrl: 'q.jpg',
+      mediumUrl: 'm.jpg',
+      largeUrl: 'l.jpg',
+      link: 'https://www.flickr.com/photos/test-flickr-user-id/42',
+    })
+  })
+
+  it('drops non-primitive Flickr field values', async () => {
+    mockGot.mockResolvedValue({
+      body: {
+        photos: {
+          photo: [
+            {
+              id: { not: 'serializable' },
+              title: ['array', 'title'],
+              description: { _content: 'ok' },
+              datetaken: {},
+              ownername: [],
+              url_q: 'q.jpg',
+              url_m: 'm.jpg',
+              url_l: 'l.jpg',
+            },
+          ],
+          total: 1,
+          page: 1,
+          pages: 1,
+        },
+      },
+    })
+
+    const result = await fetchPhotos()
+
+    expect(result.photos[0]).toEqual(
+      expect.objectContaining({
+        id: undefined,
+        title: undefined,
+        dateTaken: undefined,
+        ownerName: undefined,
+        description: 'ok',
+        link: 'https://www.flickr.com/photos/test-flickr-user-id/',
+      }),
+    )
+  })
+
   it('maps photos with nullish optional fields using defaults', async () => {
     mockGot.mockResolvedValue({
       body: {

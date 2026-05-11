@@ -331,6 +331,27 @@ describe('fetchBook', () => {
     expect(result).toBeNull()
   })
 
+  it('treats invalid JSON in a Google Books error body as absent quota metadata', async () => {
+    const bookInput = {
+      isbn: '9780143127550',
+      rating: '4',
+    }
+
+    const badJsonError = {
+      response: {
+        statusCode: 500,
+        body: '{not-json',
+      },
+    }
+
+    mockGot.mockRejectedValueOnce(badJsonError)
+
+    const result = await fetchBook(bookInput)
+
+    expect(mockLogger.error).toHaveBeenCalledWith('Error fetching data Google Books API.', badJsonError)
+    expect(result).toBeNull()
+  })
+
   it('should handle malformed JSON response', async () => {
     const bookInput = {
       isbn: '9780143127550',

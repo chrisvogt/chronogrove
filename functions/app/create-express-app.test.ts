@@ -680,6 +680,37 @@ describe('createExpressApp auth and session branches', () => {
       }
     })
 
+    it('honors x-chronogrove-public-host when Host is a Cloud Run hostname (SSR probe)', async () => {
+      const prev = process.env.WIDGET_USER_ID_BY_HOSTNAME
+      process.env.WIDGET_USER_ID_BY_HOSTNAME = JSON.stringify({
+        'widgets.run.example': 'run-tenant-user',
+      })
+      try {
+        const app = await buildApp()
+        const { getWidgetContent } = await import('../widgets/get-widget-content.js')
+        vi.mocked(getWidgetContent).mockClear()
+
+        await request(app)
+          .get('/api/widgets/spotify')
+          .set('Host', 'my-service-abc123-uc.a.run.app')
+          .set('x-chronogrove-public-host', 'widgets.run.example')
+          .expect(200)
+
+        expect(vi.mocked(getWidgetContent)).toHaveBeenCalledWith(
+          'spotify',
+          'run-tenant-user',
+          documentStore,
+          expect.anything(),
+        )
+      } finally {
+        if (prev === undefined) {
+          delete process.env.WIDGET_USER_ID_BY_HOSTNAME
+        } else {
+          process.env.WIDGET_USER_ID_BY_HOSTNAME = prev
+        }
+      }
+    })
+
     it('returns 404 when uid query is invalid', async () => {
       const app = await buildApp()
 

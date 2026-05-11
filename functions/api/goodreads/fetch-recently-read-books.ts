@@ -56,9 +56,6 @@ function parseGoogleBooksApiErrorBody(error: unknown): unknown | null {
 async function fetchGoogleBookByTitleFallback(
   book: GoodreadsReviewListBookSource,
 ): Promise<GoogleBooksFetchByIsbnResult | null> {
-  if (!book.title) {
-    return null
-  }
   const searchQuery = book.authorName
     ? `intitle:${book.title} inauthor:${book.authorName}`
     : `intitle:${book.title}`
