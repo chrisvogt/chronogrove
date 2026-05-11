@@ -258,7 +258,7 @@ describe('index.js', () => {
         })
       })
 
-      it('should handle getWidgetContent rejecting with value that has no .message (buildFailureResponse String fallback)', async () => {
+      it('should handle getWidgetContent rejecting with value that has no .message (buildFailureResponse JSON fallback)', async () => {
         const { getWidgetContent } = await import('./widgets/get-widget-content.js')
         vi.mocked(getWidgetContent).mockRejectedValueOnce({ code: 'UNKNOWN' })
 
@@ -267,7 +267,7 @@ describe('index.js', () => {
           .expect(500)
 
         expect(response.body.ok).toBe(false)
-        expect(response.body.error).toBe('[object Object]')
+        expect(response.body.error).toBe('{"code":"UNKNOWN"}')
       })
 
       it('should use default widget user for api.chronogrove.com when host is not mapped', async () => {

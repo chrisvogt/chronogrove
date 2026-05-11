@@ -259,7 +259,7 @@ describe('fetchPhotos', () => {
       thumbnailUrl: undefined,
       mediumUrl: undefined,
       largeUrl: undefined,
-      link: 'https://www.flickr.com/photos/test-flickr-user-id/null',
+      link: 'https://www.flickr.com/photos/test-flickr-user-id/',
     })
   })
 }) 

@@ -105,6 +105,77 @@ function expiresAtFromGithub(expiresInSeconds: number | undefined): string | und
   return new Date(Date.now() + expiresInSeconds * 1000).toISOString()
 }
 
+type GitHubOAuthCfgReady = {
+  clientId: string
+  clientSecret: string
+  callbackUrl: string
+}
+
+async function completeGitHubOAuthLink(params: {
+  documentStore: DocumentStore
+  usersPath: string
+  oauthCfg: GitHubOAuthCfgReady
+  uid: string
+  pendingPath: string
+  code: string
+  validatedReturnTo: string | null
+  req: express.Request
+  res: express.Response
+  logger: LoggerLike
+}): Promise<void> {
+  const {
+    documentStore,
+    usersPath,
+    oauthCfg,
+    uid,
+    pendingPath,
+    code,
+    validatedReturnTo,
+    req,
+    res,
+    logger,
+  } = params
+
+  const token = await exchangeGitHubOAuthCode({
+    clientId: oauthCfg.clientId,
+    clientSecret: oauthCfg.clientSecret,
+    code,
+    redirectUri: oauthCfg.callbackUrl,
+  })
+
+  const login = await fetchGitHubViewerLogin(token.access_token)
+
+  const credPayload: GitHubOAuthCredentialPayload = {
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    expiresAt: expiresAtFromGithub(token.expires_in),
+  }
+  const envelope = encryptJsonEnvelope(uid, credPayload)
+
+  const integrationPath = `${usersPath}/${uid}/${USER_INTEGRATIONS_SEGMENT}/${GITHUB_INTEGRATION_ID}`
+  await documentStore.setDocument(integrationPath, {
+    providerId: GITHUB_INTEGRATION_ID,
+    status: 'connected',
+    githubUsername: login,
+    credentialEnvelope: envelope,
+    oauthCompletedAt: toStoredDateTime(),
+    updatedAt: toStoredDateTime(),
+  })
+
+  if (documentStore.deleteDocument) {
+    await documentStore.deleteDocument(pendingPath)
+  }
+
+  logger.info('GitHub OAuth completed', { uid, login })
+
+  const cfg = getGitHubOAuthConfig()
+  const successPath =
+    validatedReturnTo != null
+      ? withGitHubOAuthFlash(validatedReturnTo, 'success')
+      : cfg.appSuccessRedirect
+  res.redirect(302, resolveGitHubOAuthRedirectUrl(req, successPath))
+}
+
 export interface RegisterGitHubOAuthOptions {
   expressApp: express.Express
   authenticateUser: express.RequestHandler
@@ -288,10 +359,15 @@ export function registerGitHubOAuthRoutes(opts: RegisterGitHubOAuthOptions): voi
       }
 
       const uid = pending.uid
-      const oauthCfg = getGitHubOAuthConfig()
-      if (!oauthCfg.clientId || !oauthCfg.clientSecret || !oauthCfg.callbackUrl) {
+      const oauthCfgRaw = getGitHubOAuthConfig()
+      if (!oauthCfgRaw.clientId || !oauthCfgRaw.clientSecret || !oauthCfgRaw.callbackUrl) {
         failRedirect('server_misconfigured')
         return
+      }
+      const oauthCfg: GitHubOAuthCfgReady = {
+        clientId: oauthCfgRaw.clientId,
+        clientSecret: oauthCfgRaw.clientSecret,
+        callbackUrl: oauthCfgRaw.callbackUrl,
       }
 
       let encryptionReady = true
@@ -307,44 +383,18 @@ export function registerGitHubOAuthRoutes(opts: RegisterGitHubOAuthOptions): voi
       }
 
       try {
-        const token = await exchangeGitHubOAuthCode({
-          clientId: oauthCfg.clientId,
-          clientSecret: oauthCfg.clientSecret,
+        await completeGitHubOAuthLink({
+          documentStore,
+          usersPath,
+          oauthCfg,
+          uid,
+          pendingPath,
           code,
-          redirectUri: oauthCfg.callbackUrl,
+          validatedReturnTo,
+          req,
+          res,
+          logger,
         })
-
-        const login = await fetchGitHubViewerLogin(token.access_token)
-
-        const credPayload: GitHubOAuthCredentialPayload = {
-          accessToken: token.access_token,
-          refreshToken: token.refresh_token,
-          expiresAt: expiresAtFromGithub(token.expires_in),
-        }
-        const envelope = encryptJsonEnvelope(uid, credPayload)
-
-        const integrationPath = `${usersPath}/${uid}/${USER_INTEGRATIONS_SEGMENT}/${GITHUB_INTEGRATION_ID}`
-        await documentStore.setDocument(integrationPath, {
-          providerId: GITHUB_INTEGRATION_ID,
-          status: 'connected',
-          githubUsername: login,
-          credentialEnvelope: envelope,
-          oauthCompletedAt: toStoredDateTime(),
-          updatedAt: toStoredDateTime(),
-        })
-
-        if (documentStore.deleteDocument) {
-          await documentStore.deleteDocument(pendingPath)
-        }
-
-        logger.info('GitHub OAuth completed', { uid, login })
-
-        const cfg = getGitHubOAuthConfig()
-        const successPath =
-          validatedReturnTo != null
-            ? withGitHubOAuthFlash(validatedReturnTo, 'success')
-            : cfg.appSuccessRedirect
-        res.redirect(302, resolveGitHubOAuthRedirectUrl(req, successPath))
       } catch (err) {
         logger.error('GitHub OAuth callback failed', { uid, error: err })
         failRedirect('token_exchange_failed')

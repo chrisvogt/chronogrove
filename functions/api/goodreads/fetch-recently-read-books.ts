@@ -32,6 +32,87 @@ import { sortGoodreadsRecentlyReadBooksByReadAtDesc } from '../../utils/sort-goo
 
 const toBookMediaDestinationPath = id => `books/${id}-thumbnail.jpg`
 
+type GotLikeError = {
+  response?: { statusCode?: number; body?: unknown }
+  statusCode?: number
+}
+
+function parseGoogleBooksApiErrorBody(error: unknown): unknown | null {
+  const gotErr = error as GotLikeError
+  const raw = gotErr.response?.body
+  if (raw == null) {
+    return null
+  }
+  return typeof raw === 'string' ? JSON.parse(raw) : raw
+}
+
+async function fetchGoogleBookByTitleFallback(
+  book: GoodreadsReviewListBookSource,
+): Promise<GoogleBooksFetchByIsbnResult | null> {
+  if (!book.title) {
+    return null
+  }
+  const searchQuery = book.authorName
+    ? `intitle:${book.title} inauthor:${book.authorName}`
+    : `intitle:${book.title}`
+  const maxRetries = 3
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const googleBooksAPIKey = getGoogleBooksApiKey()
+      const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
+        searchParams: {
+          q: searchQuery,
+          key: googleBooksAPIKey,
+          country: 'US',
+        },
+      })
+      const parsed: unknown = JSON.parse(body)
+      const foundBook: GoogleBooksVolumeSubset | undefined =
+        isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
+
+      if (foundBook) {
+        logger.info(
+          `Found book by ${book.authorName ? 'title/author' : 'title'} for recently read: ${book.title}`,
+        )
+        return {
+          book: foundBook,
+          rating: book.rating,
+        }
+      }
+    } catch (error: unknown) {
+      const gotErr = error as GotLikeError
+      const statusCode = gotErr.response?.statusCode ?? gotErr.statusCode
+      const errorBody = parseGoogleBooksApiErrorBody(error) as {
+        error?: { status?: string; code?: number; message?: string }
+      } | null
+      const isQuotaExceeded =
+        errorBody?.error?.status === 'RESOURCE_EXHAUSTED' ||
+        (errorBody?.error?.code === 429 && Boolean(errorBody?.error?.message?.includes('Quota exceeded')))
+      if (isQuotaExceeded) {
+        logger.error('Daily quota exceeded for Google Books API. Title/author fallback skipped.', {
+          message: errorBody?.error?.message,
+        })
+        break
+      }
+      if ((statusCode === 429 || statusCode === 503) && attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000
+        logger.warn(
+          `Rate limited (${statusCode}) for title search "${book.title}", waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`,
+        )
+        await new Promise((resolve) => setTimeout(resolve, waitTime))
+        continue
+      }
+      const mode = book.authorName ? 'title/author' : 'title'
+      logger.error(
+        `Error fetching book by ${mode} for recently read "${book.title}" after retries:`,
+        error,
+      )
+      break
+    }
+  }
+  return null
+}
+
 type TransformBookDataInput = GoodreadsRecentlyReadBookFromGoogle
 
 const transformBookData = (book: TransformBookDataInput): GoodreadsRecentlyReadBook => {
@@ -92,7 +173,8 @@ export default async () => {
   const bookReviews = await new Promise<GoodreadsReviewListBookSource[]>((resolve, reject) => {
     parseString(body, (error, response) => {
       if (error) {
-        reject(error)
+        reject(error instanceof Error ? error : new Error(String(error)))
+        return
       }
 
       const reviewsResponseUnknown =
@@ -183,72 +265,16 @@ export default async () => {
       
       let result: GoogleBooksFetchByIsbnResult | null = await fetchBookFromGoogle(book)
 
-      // If ISBN lookup failed, try searching by title and/or author
-      if ((!result || !result.book) && book.title) {
-        const searchQuery = book.authorName
-          ? `intitle:${book.title} inauthor:${book.authorName}`
-          : `intitle:${book.title}`
-        const maxRetries = 3
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            const googleBooksAPIKey = getGoogleBooksApiKey()
-            const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
-              searchParams: {
-                q: searchQuery,
-                key: googleBooksAPIKey,
-                country: 'US'
-              }
-            })
-            const parsed: unknown = JSON.parse(body)
-            const foundBook: GoogleBooksVolumeSubset | undefined =
-              isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
-
-            if (foundBook) {
-              result = {
-                book: foundBook,
-                rating: book.rating,
-              }
-              logger.info(
-                `Found book by ${book.authorName ? 'title/author' : 'title'} for recently read: ${book.title}`
-              )
-              break
-            }
-          } catch (error) {
-            const statusCode = error.response?.statusCode || error.statusCode
-            const errorBody = error.response?.body
-              ? (typeof error.response.body === 'string' ? JSON.parse(error.response.body) : error.response.body)
-              : null
-            const isQuotaExceeded =
-              errorBody?.error?.status === 'RESOURCE_EXHAUSTED' ||
-              (errorBody?.error?.code === 429 && errorBody?.error?.message?.includes('Quota exceeded'))
-            if (isQuotaExceeded) {
-              logger.error(
-                'Daily quota exceeded for Google Books API. Title/author fallback skipped.',
-                { message: errorBody?.error?.message }
-              )
-              break
-            }
-            if ((statusCode === 429 || statusCode === 503) && attempt < maxRetries) {
-              const waitTime = Math.pow(2, attempt) * 1000
-              logger.warn(
-                `Rate limited (${statusCode}) for title search "${book.title}", waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`
-              )
-              await new Promise(resolve => setTimeout(resolve, waitTime))
-              continue
-            }
-            logger.error(
-              `Error fetching book by ${book.authorName ? 'title/author' : 'title'} for recently read "${book.title}" after retries:`,
-              error
-            )
-            break
-          }
+      if (!result?.book && book.title) {
+        const fallback = await fetchGoogleBookByTitleFallback(book)
+        if (fallback) {
+          result = fallback
         }
       }
 
-      if (!result || !result.book) {
-        logger.warn(
-          `Book not found by ISBN or title/author fallback: ${book.title ? `"${book.title}"` : `ISBN ${book.isbn}`}`
-        )
+      if (!result?.book) {
+        const label = book.title ? `"${book.title}"` : `ISBN ${book.isbn}`
+        logger.warn(`Book not found by ISBN or title/author fallback: ${label}`)
       }
 
       return {
@@ -287,8 +313,7 @@ export default async () => {
 
   const storedMediaFileNames = await listStoredMedia()
 
-  // TODO: update the filters to use the same source of truth as data being saved
-  // to the db.
+  // Media skip list uses filenames from storage; widget payloads use the same paths from transformBookData.
   const mediaToDownload = books
     .filter(({ mediaDestinationPath, thumbnail }) => {
       if (!thumbnail) return false // I've found at least 1 book that doesn't contain a thumbnail

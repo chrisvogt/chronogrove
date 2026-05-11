@@ -22,7 +22,7 @@ const getPlayerSummary = async (
   const response = (body as { response?: { players?: SteamPlayerSummary[] } })?.response
   const players = response?.players ?? []
   const player = players[0]
-  return player ? player : []
+  return player ?? []
 }
 
 export default getPlayerSummary

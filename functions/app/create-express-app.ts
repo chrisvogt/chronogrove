@@ -80,12 +80,24 @@ const buildSuccessResponse = <TPayload>(
     payload,
   })
 
+function formatUnknownFailureMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message
+  }
+  const message = (err as { message?: unknown })?.message
+  if (typeof message === 'string') {
+    return message
+  }
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}
+
 const buildFailureResponse = (err: unknown = {}): { ok: false; error: string } => ({
   ok: false,
-  error:
-    err instanceof Error
-      ? err.message
-      : (err as { message?: string })?.message ?? String(err),
+  error: err instanceof Error ? err.message : formatUnknownFailureMessage(err),
 })
 
 /** Production gate: revisit domain allowlist, MFA, and Firebase Auth policies before a public launch. */
@@ -134,6 +146,17 @@ function hostPortFirst(hostOrHostPort: string): string {
   const colon = hostOrHostPort.indexOf(':')
   const host = colon === -1 ? hostOrHostPort : hostOrHostPort.slice(0, colon)
   return host.toLowerCase()
+}
+
+function normalizeExpressPathParam(param: unknown): string | undefined {
+  if (typeof param === 'string') {
+    return param
+  }
+  if (Array.isArray(param)) {
+    const first = param[0]
+    return typeof first === 'string' ? first : undefined
+  }
+  return undefined
 }
 
 /**
@@ -232,7 +255,7 @@ export const requireVerifiedEmail: express.RequestHandler = (req, res, next) => 
 }
 
 export function getSessionAuthError(authHeader: string | undefined): string | null {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     return 'No valid authorization token provided'
   }
   const token = extractBearerToken(authHeader) ?? ''
@@ -254,8 +277,58 @@ export function createExpressApp({
   const sessionCookieBaseOptions = {
     httpOnly: true,
     secure: isProductionEnvironment(),
-    sameSite: (isProductionEnvironment() ? 'strict' : 'lax') as 'strict' | 'lax',
+    sameSite: isProductionEnvironment() ? ('strict' as const) : ('lax' as const),
     path: '/',
+  }
+
+  const verifySessionClaimsFromCookie = async (
+    sessionCookie: string | undefined,
+    logVerificationDetails: boolean
+  ): Promise<AuthClaims | null> => {
+    if (!sessionCookie) {
+      return null
+    }
+    try {
+      const claims = await authService.verifySessionCookie(sessionCookie)
+      if (logVerificationDetails) {
+        logger.info('Session cookie verified successfully')
+      }
+      return claims
+    } catch (error: unknown) {
+      if (logVerificationDetails) {
+        logger.error('Session cookie verification failed', {
+          error: error instanceof Error ? error.message : '',
+          code: (error as { code?: string }).code,
+          stack: error instanceof Error ? error.stack : undefined,
+        })
+      }
+      return null
+    }
+  }
+
+  const verifyBearerClaimsFromHeader = async (
+    bearerToken: string | null,
+    logVerificationDetails: boolean,
+    requestPath: string
+  ): Promise<AuthClaims | null> => {
+    if (!bearerToken) {
+      return null
+    }
+    try {
+      const claims = await authService.verifyIdToken(bearerToken)
+      if (logVerificationDetails) {
+        logger.info('Bearer token verified', { path: requestPath })
+      }
+      return claims
+    } catch (error: unknown) {
+      if (logVerificationDetails) {
+        logger.error('JWT token verification failed', {
+          error: error instanceof Error ? error.message : '',
+          code: (error as { code?: string }).code,
+        })
+      }
+      return null
+    }
   }
 
   /**
@@ -275,40 +348,10 @@ export function createExpressApp({
     const sessionCookie = req.cookies?.session
     const bearerToken = extractBearerToken(req.headers.authorization)
 
-    let sessionClaims: AuthClaims | null = null
-    if (sessionCookie) {
-      try {
-        sessionClaims = await authService.verifySessionCookie(sessionCookie)
-        if (logVerificationDetails) {
-          logger.info('Session cookie verified successfully')
-        }
-      } catch (error) {
-        if (logVerificationDetails) {
-          logger.error('Session cookie verification failed', {
-            error: error instanceof Error ? error.message : '',
-            code: (error as { code?: string }).code,
-            stack: error instanceof Error ? error.stack : undefined,
-          })
-        }
-      }
-    }
-
-    let bearerClaims: AuthClaims | null = null
-    if (bearerToken) {
-      try {
-        bearerClaims = await authService.verifyIdToken(bearerToken)
-        if (logVerificationDetails) {
-          logger.info('Bearer token verified', { path: req.path })
-        }
-      } catch (error) {
-        if (logVerificationDetails) {
-          logger.error('JWT token verification failed', {
-            error: error instanceof Error ? error.message : '',
-            code: (error as { code?: string }).code,
-          })
-        }
-      }
-    }
+    const [sessionClaims, bearerClaims] = await Promise.all([
+      verifySessionClaimsFromCookie(sessionCookie, logVerificationDetails),
+      verifyBearerClaimsFromHeader(bearerToken, logVerificationDetails, req.path ?? ''),
+    ])
 
     const mismatch =
       sessionClaims !== null &&
@@ -646,13 +689,7 @@ export function createExpressApp({
       keyGenerator: (req) => `${getRateLimitKey(req)}:${req.path}`,
     }),
     async (req, res) => {
-      const providerParam = req.params.provider
-      const provider =
-        typeof providerParam === 'string'
-          ? providerParam
-          : Array.isArray(providerParam)
-            ? providerParam[0]
-            : undefined
+      const provider = normalizeExpressPathParam(req.params.provider)
 
       if (!provider || !isWidgetId(provider)) {
         res.status(404).json(
@@ -902,7 +939,11 @@ export function createExpressApp({
           return
         }
 
-        const token = extractBearerToken(req.headers.authorization)!
+        const token = extractBearerToken(req.headers.authorization)
+        if (!token) {
+          res.status(401).json({ ok: false, error: 'No token' })
+          return
+        }
         const decodedToken = await authService.verifyIdToken(token)
 
         if (!isAllowedEmail(decodedToken.email)) {

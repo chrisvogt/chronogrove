@@ -20,13 +20,31 @@ export function firstQueryString(value: unknown): string | undefined {
   return undefined
 }
 
+async function resolveUserIdFromUsernameClaim(
+  loweredUsername: string,
+  documentStore: DocumentStore,
+): Promise<{ userId: string } | 'not_found'> {
+  const claimPath = `${TENANT_USERNAMES_COLLECTION}/${loweredUsername}`
+  const claim = await documentStore.getDocument<{ uid?: unknown }>(claimPath)
+  if (claim?.uid != null && typeof claim.uid === 'string' && claim.uid.length > 0) {
+    return { userId: claim.uid }
+  }
+  if (documentStore.legacyUsernameOwnerUid) {
+    const owner = await documentStore.legacyUsernameOwnerUid(getUsersCollectionPath(), loweredUsername)
+    if (owner) {
+      return { userId: owner }
+    }
+  }
+  return 'not_found'
+}
+
 /**
  * Optional `uid` or `username` on public widget reads. `uid` wins when both are present.
  * Returns `skip` to fall back to hostname-based resolution.
  */
 export async function resolveWidgetDataUserIdFromPublicQuery(
   req: Request,
-  documentStore: DocumentStore
+  documentStore: DocumentStore,
 ): Promise<'skip' | { userId: string } | 'not_found'> {
   const query = req.query && typeof req.query === 'object' ? req.query : {}
   const uidParam = firstQueryString(query.uid)
@@ -44,18 +62,7 @@ export async function resolveWidgetDataUserIdFromPublicQuery(
     if (!ONBOARDING_USERNAME_PATTERN.test(lowered)) {
       return 'not_found'
     }
-    const claimPath = `${TENANT_USERNAMES_COLLECTION}/${lowered}`
-    const claim = await documentStore.getDocument<{ uid?: unknown }>(claimPath)
-    if (claim && typeof claim.uid === 'string' && claim.uid.length > 0) {
-      return { userId: claim.uid }
-    }
-    if (documentStore.legacyUsernameOwnerUid) {
-      const owner = await documentStore.legacyUsernameOwnerUid(getUsersCollectionPath(), lowered)
-      if (owner) {
-        return { userId: owner }
-      }
-    }
-    return 'not_found'
+    return resolveUserIdFromUsernameClaim(lowered, documentStore)
   }
 
   return 'skip'
