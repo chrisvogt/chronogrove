@@ -1,6 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/auth/AuthContext'
 import { apiClient } from '@/auth/apiClient'
@@ -39,6 +46,18 @@ interface ProviderState {
   lastSynced: string | null
 }
 
+function dotTone(s: ProviderState): 'pending' | 'ok' | 'bad' {
+  if (s.loading) return 'pending'
+  if (s.ok) return 'ok'
+  return 'bad'
+}
+
+function dotAriaLabel(s: ProviderState): string {
+  if (s.loading) return 'checking'
+  if (s.ok) return 'healthy'
+  return 'error'
+}
+
 function formatRelative(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -62,6 +81,77 @@ const initialState = (): ProviderState => ({
   lastSynced: null,
 })
 
+function dotClassForTone(tone: 'pending' | 'ok' | 'bad'): string {
+  switch (tone) {
+    case 'pending':
+      return styles.dotPending ?? ''
+    case 'ok':
+      return styles.dotOk ?? ''
+    default:
+      return styles.dotBad ?? ''
+  }
+}
+
+function OverviewProviderCard({
+  provider,
+  index,
+  state: s,
+}: {
+  provider: ProviderConfig
+  index: number
+  state: ProviderState
+}) {
+  const tone = dotTone(s)
+  const cardStyle = {
+    '--delay': String(index * 72),
+    '--card-accent': provider.accent,
+  } as CSSProperties
+
+  let body: ReactNode
+  if (s.loading) {
+    body = (
+      <div className={styles.skeleton}>
+        <div className={styles.skeletonLine} />
+        <div className={styles.skeletonLine} style={{ width: '55%' }} />
+      </div>
+    )
+  } else if (s.metrics.length > 0) {
+    body = (
+      <ul className={styles.metricList}>
+        {s.metrics.map((m) => (
+          <li key={m.displayName} className={styles.metric}>
+            <span className={styles.metricValue}>{m.value.toLocaleString()}</span>
+            <span className={styles.metricLabel}>{m.displayName}</span>
+          </li>
+        ))}
+      </ul>
+    )
+  } else {
+    body = <p className={styles.noData}>{s.ok ? 'Live — no stored metrics' : 'Unavailable'}</p>
+  }
+
+  let latencyText = '—'
+  if (!s.loading && s.ms != null) {
+    latencyText = `${s.ms}ms`
+  }
+
+  return (
+    <article className={`${styles.card} ${s.loading ? styles.cardLoading : ''}`} style={cardStyle}>
+      <div className={styles.cardHeader}>
+        <span className={styles.providerName}>{provider.label}</span>
+        <span className={`${styles.dot} ${dotClassForTone(tone)}`} aria-label={dotAriaLabel(s)} />
+      </div>
+
+      {body}
+
+      <div className={styles.cardFooter}>
+        <span className={styles.latency}>{latencyText}</span>
+        <span className={styles.synced}>{s.loading ? '—' : formatRelative(s.lastSynced)}</span>
+      </div>
+    </article>
+  )
+}
+
 export function OverviewSection() {
   const { user, apiSessionReady } = useAuth()
   const baseUrl = getAppBaseUrl()
@@ -81,7 +171,7 @@ export function OverviewSection() {
       return
     }
     let cancelled = false
-    void (async () => {
+    ;(async () => {
       try {
         const idToken = await user.getIdToken()
         const res = await apiClient.getJson('/api/onboarding/progress', { idToken })
@@ -100,7 +190,7 @@ export function OverviewSection() {
           setPublicUsername(null)
         }
       }
-    })()
+    })().catch(() => {})
     return () => {
       cancelled = true
     }
@@ -148,7 +238,7 @@ export function OverviewSection() {
   }, [baseUrl])
 
   useEffect(() => {
-    void fetchAll()
+    fetchAll().catch(() => {})
   }, [fetchAll])
 
   useEffect(() => {
@@ -162,14 +252,15 @@ export function OverviewSection() {
     if (!openFlyout) return
 
     setAddProvidersOpen(true)
-    void fetchAll()
+    fetchAll().catch(() => {})
 
     params.delete('providers')
     params.delete('oauth')
     params.delete('status')
     params.delete('reason')
     const rest = params.toString()
-    const clean = `${window.location.pathname}${rest ? `?${rest}` : ''}`
+    const query = rest.length > 0 ? `?${rest}` : ''
+    const clean = `${window.location.pathname}${query}`
     window.history.replaceState(null, '', clean)
   }, [user, apiSessionReady, fetchAll])
 
@@ -225,69 +316,20 @@ export function OverviewSection() {
       <AddProvidersFlyout
         open={addProvidersOpen}
         onClose={() => setAddProvidersOpen(false)}
-        onSaved={() => void fetchAll()}
+        onSaved={() => {
+          fetchAll().catch(() => {})
+        }}
       />
 
       <div className={styles.grid}>
-        {PROVIDERS.map((provider, index) => {
-          const s = states[provider.id] ?? initialState()
-          return (
-            <article
-              key={provider.id}
-              className={`${styles.card} ${s.loading ? styles.cardLoading : ''}`}
-              style={
-                {
-                  '--delay': String(index * 72),
-                  '--card-accent': provider.accent,
-                } as React.CSSProperties
-              }
-            >
-              <div className={styles.cardHeader}>
-                <span className={styles.providerName}>{provider.label}</span>
-                <span
-                  className={`${styles.dot} ${
-                    s.loading
-                      ? styles.dotPending
-                      : s.ok
-                        ? styles.dotOk
-                        : styles.dotBad
-                  }`}
-                  role="img"
-                  aria-label={s.loading ? 'checking' : s.ok ? 'healthy' : 'error'}
-                />
-              </div>
-
-              {s.loading ? (
-                <div className={styles.skeleton}>
-                  <div className={styles.skeletonLine} />
-                  <div className={styles.skeletonLine} style={{ width: '55%' }} />
-                </div>
-              ) : s.metrics.length > 0 ? (
-                <ul className={styles.metricList}>
-                  {s.metrics.map((m) => (
-                    <li key={m.displayName} className={styles.metric}>
-                      <span className={styles.metricValue}>{m.value.toLocaleString()}</span>
-                      <span className={styles.metricLabel}>{m.displayName}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className={styles.noData}>
-                  {s.ok ? 'Live — no stored metrics' : 'Unavailable'}
-                </p>
-              )}
-
-              <div className={styles.cardFooter}>
-                <span className={styles.latency}>
-                  {s.loading ? '—' : s.ms != null ? `${s.ms}ms` : '—'}
-                </span>
-                <span className={styles.synced}>
-                  {s.loading ? '—' : formatRelative(s.lastSynced)}
-                </span>
-              </div>
-            </article>
-          )
-        })}
+        {PROVIDERS.map((provider, index) => (
+          <OverviewProviderCard
+            key={provider.id}
+            provider={provider}
+            index={index}
+            state={states[provider.id] ?? initialState()}
+          />
+        ))}
       </div>
     </div>
   )

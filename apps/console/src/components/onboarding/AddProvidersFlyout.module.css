@@ -26,6 +26,10 @@
 dialog.panel {
   margin: 0;
   max-width: none;
+  padding: 0;
+  /* UA `<dialog>` defaults add padding and a border on all sides; restore aside-like chrome. */
+  border: none;
+  border-left: 1px solid var(--border);
 }
 
 .panel {

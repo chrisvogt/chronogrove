@@ -39,6 +39,12 @@ type UsernameStatus =
   | 'error'
 type DnsStatus = 'idle' | 'checking' | 'verified' | 'not-verified' | 'error'
 
+function oauthIntegrationLabel(id: string): 'Discogs' | 'GitHub' | 'Flickr' {
+  if (id === 'discogs') return 'Discogs'
+  if (id === 'github') return 'GitHub'
+  return 'Flickr'
+}
+
 function isStepId(v: string): v is StepId {
   return STEPS.some((s) => s.id === v)
 }
@@ -189,7 +195,9 @@ export function OnboardingSection() {
         setDomain(p.customDomain ?? '')
         setDnsStatus('idle')
         if (savedUsername.length >= 3) {
-          queueMicrotask(() => void checkUsername(savedUsername))
+          queueMicrotask(() => {
+            checkUsername(savedUsername).catch(() => {})
+          })
         }
       } catch {
         if (!cancelled) setSaveError('Could not load saved progress. You can still continue.')
@@ -214,8 +222,7 @@ export function OnboardingSection() {
     if (oauthProvider !== 'flickr' && oauthProvider !== 'discogs' && oauthProvider !== 'github') return
     const status = params.get('status')
     const reason = params.get('reason')
-    const label =
-      oauthProvider === 'discogs' ? 'Discogs' : oauthProvider === 'github' ? 'GitHub' : 'Flickr'
+    const label = oauthIntegrationLabel(oauthProvider)
     if (status === 'success') {
       setOauthFlash(`${label} is now linked to your account.`)
     } else if (status === 'error') {
@@ -230,7 +237,8 @@ export function OnboardingSection() {
     params.delete('status')
     params.delete('reason')
     const rest = params.toString()
-    const clean = `${window.location.pathname}${rest ? `?${rest}` : ''}`
+    const query = rest.length > 0 ? `?${rest}` : ''
+    const clean = `${window.location.pathname}${query}`
     window.history.replaceState(null, '', clean)
   }, [hydrated])
 
@@ -263,8 +271,7 @@ export function OnboardingSection() {
       }
       await reloadProgressFromServer()
     } catch (e) {
-      const label =
-        providerId === 'discogs' ? 'Discogs' : providerId === 'github' ? 'GitHub' : 'Flickr'
+      const label = oauthIntegrationLabel(providerId)
       setSaveError(e instanceof Error ? e.message : `Could not cancel ${label} link.`)
     }
   }
@@ -302,7 +309,9 @@ export function OnboardingSection() {
     setUsernameStatus('idle')
     if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current)
     if (sanitized.length >= 3) {
-      usernameTimerRef.current = setTimeout(() => void checkUsername(sanitized), 500)
+      usernameTimerRef.current = setTimeout(() => {
+        checkUsername(sanitized).catch(() => {})
+      }, 500)
     }
   }
 
@@ -332,9 +341,11 @@ export function OnboardingSection() {
 
   const startDnsCheck = () => {
     if (!domain) return
-    void checkDns(domain)
+    checkDns(domain).catch(() => {})
     if (dnsPollingRef.current) clearInterval(dnsPollingRef.current)
-    dnsPollingRef.current = setInterval(() => void checkDns(domain), 15000)
+    dnsPollingRef.current = setInterval(() => {
+      checkDns(domain).catch(() => {})
+    }, 15000)
   }
 
   useEffect(() => {
@@ -382,7 +393,7 @@ export function OnboardingSection() {
       return
     }
     const t = setTimeout(() => {
-      void persistProgress(buildSnapshot())
+      persistProgress(buildSnapshot()).catch(() => {})
     }, 650)
     return () => clearTimeout(t)
   }, [user, hydrated, currentStep, connectedProviders, buildSnapshot, persistProgress])
@@ -399,7 +410,6 @@ export function OnboardingSection() {
   const visualStepIndex =
     currentStep === 'done' ? STEPS.length - 1 : STEPS.findIndex((s) => s.id === currentStep)
   const safeVisualIndex = visualStepIndex >= 0 ? visualStepIndex : 0
-  const progressPercent = ((safeVisualIndex + 1) / STEPS.length) * 100
   const stepMetaLabel = STEPS[safeVisualIndex]?.label ?? ''
 
   if (authLoading) {
@@ -467,21 +477,12 @@ export function OnboardingSection() {
               {saving && <span className={styles.savingBadge}>Saving…</span>}
             </div>
 
-            <div
+            <progress
               className={styles.progressBarTrack}
-              role="progressbar"
-              aria-valuemin={1}
-              aria-valuemax={STEPS.length}
-              aria-valuenow={safeVisualIndex + 1}
+              max={STEPS.length}
+              value={safeVisualIndex + 1}
               aria-label="Onboarding steps completed"
-            >
-              <div
-                className={styles.progressBarFill}
-                style={{
-                  width: `${progressPercent}%`,
-                }}
-              />
-            </div>
+            />
 
             <div className={styles.stepIndicator}>
               {STEPS.map((step, i) => (
@@ -491,7 +492,9 @@ export function OnboardingSection() {
                     className={`${styles.stepDot} ${
                       currentStep === step.id ? styles.stepDotActive : ''
                     } ${completedSteps.has(step.id) ? styles.stepDotDone : ''}`}
-                    onClick={() => void navigateToStep(step.id)}
+                    onClick={() => {
+                      navigateToStep(step.id).catch(() => {})
+                    }}
                     aria-current={currentStep === step.id ? 'step' : undefined}
                   >
                     {completedSteps.has(step.id) ? <CheckIcon /> : <span>{i + 1}</span>}
@@ -515,9 +518,9 @@ export function OnboardingSection() {
             )}
 
             {oauthFlash && (
-              <div className={styles.oauthFlash} role="status">
+              <output className={styles.oauthFlash} aria-live="polite">
                 {oauthFlash}
-              </div>
+              </output>
             )}
 
             {currentStep === 'username' && (
@@ -579,7 +582,9 @@ export function OnboardingSection() {
               type="button"
               className={styles.btnPrimary}
               disabled={usernameStatus !== 'available' || saving}
-              onClick={() => void handleStepComplete('username')}
+              onClick={() => {
+                handleStepComplete('username').catch(() => {})
+              }}
             >
               Continue
             </button>
@@ -603,21 +608,39 @@ export function OnboardingSection() {
 
             {integrationStatuses.flickr === 'pending_oauth' && (
               <p className={styles.oauthCancelRow}>
-                <button type="button" className={styles.oauthCancelBtn} onClick={() => void cancelOAuthPending('flickr')}>
+                <button
+                  type="button"
+                  className={styles.oauthCancelBtn}
+                  onClick={() => {
+                    cancelOAuthPending('flickr').catch(() => {})
+                  }}
+                >
                   Cancel Flickr link
                 </button>
               </p>
             )}
             {integrationStatuses.discogs === 'pending_oauth' && (
               <p className={styles.oauthCancelRow}>
-                <button type="button" className={styles.oauthCancelBtn} onClick={() => void cancelOAuthPending('discogs')}>
+                <button
+                  type="button"
+                  className={styles.oauthCancelBtn}
+                  onClick={() => {
+                    cancelOAuthPending('discogs').catch(() => {})
+                  }}
+                >
                   Cancel Discogs link
                 </button>
               </p>
             )}
             {integrationStatuses.github === 'pending_oauth' && (
               <p className={styles.oauthCancelRow}>
-                <button type="button" className={styles.oauthCancelBtn} onClick={() => void cancelOAuthPending('github')}>
+                <button
+                  type="button"
+                  className={styles.oauthCancelBtn}
+                  onClick={() => {
+                    cancelOAuthPending('github').catch(() => {})
+                  }}
+                >
                   Cancel GitHub link
                 </button>
               </p>
@@ -628,7 +651,9 @@ export function OnboardingSection() {
                 type="button"
                 className={styles.btnSecondary}
                 disabled={saving}
-                onClick={() => void handleStepComplete('connections')}
+                onClick={() => {
+                  handleStepComplete('connections').catch(() => {})
+                }}
               >
                 Skip for now
               </button>
@@ -636,7 +661,9 @@ export function OnboardingSection() {
                 type="button"
                 className={styles.btnPrimary}
                 disabled={saving}
-                onClick={() => void handleStepComplete('connections')}
+                onClick={() => {
+                  handleStepComplete('connections').catch(() => {})
+                }}
               >
                 Continue
                 {connectedProviders.size > 0 && (
@@ -656,7 +683,7 @@ export function OnboardingSection() {
             </p>
 
             <label className={styles.label}>
-              Domain name
+              <span>Domain name</span>
               <input
                 type="text"
                 value={domain}
@@ -689,7 +716,8 @@ export function OnboardingSection() {
                   {dnsStatus === 'checking' ? (
                     <>
                       <span className="spinner" aria-hidden />
-                      Verifying…
+                      {' '}
+                      <span>Verifying…</span>
                     </>
                   ) : (
                     'Verify DNS'
@@ -740,7 +768,9 @@ export function OnboardingSection() {
                 type="button"
                 className={styles.btnSecondary}
                 disabled={saving}
-                onClick={() => void handleStepComplete('domain')}
+                onClick={() => {
+                  handleStepComplete('domain').catch(() => {})
+                }}
               >
                 Skip for now
               </button>
@@ -748,7 +778,9 @@ export function OnboardingSection() {
                 type="button"
                 className={styles.btnPrimary}
                 disabled={saving}
-                onClick={() => void handleStepComplete('domain')}
+                onClick={() => {
+                  handleStepComplete('domain').catch(() => {})
+                }}
               >
                 Finish setup
               </button>

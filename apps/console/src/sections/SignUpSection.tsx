@@ -68,7 +68,7 @@ export function SignUpSection() {
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <label className={styles.label}>
-            Email
+            <span>Email</span>
             <input
               type="email"
               value={email}
@@ -80,7 +80,7 @@ export function SignUpSection() {
             />
           </label>
           <label className={styles.label}>
-            Password
+            <span>Password</span>
             <input
               type="password"
               value={password}
@@ -93,7 +93,7 @@ export function SignUpSection() {
             />
           </label>
           <label className={styles.label}>
-            Confirm password
+            <span>Confirm password</span>
             <input
               type="password"
               value={confirmPassword}

@@ -162,7 +162,7 @@ export function AuthSection() {
             <div id="phone-recaptcha" />
             <form onSubmit={handlePhoneSubmit} className={styles.form}>
               <label className={styles.label}>
-                Phone number
+                <span>Phone number</span>
                 <input
                   type="tel"
                   value={phone}
@@ -175,7 +175,7 @@ export function AuthSection() {
               </label>
               {phoneStep === 'confirm' && (
                 <label className={styles.label}>
-                  Verification code
+                  <span>Verification code</span>
                   <input
                     type="text"
                     value={code}
@@ -188,7 +188,7 @@ export function AuthSection() {
                 </label>
               )}
               <button type="submit" className={styles.btnPrimary} disabled={loading}>
-                {loading ? '…' : phoneStep === 'send' ? 'Send code' : 'Verify'}
+                {phoneSubmitButtonLabel(loading, phoneStep)}
               </button>
             </form>
             <div className={styles.divider}>or</div>
@@ -226,6 +226,12 @@ export function AuthSection() {
       </div>
     </section>
   )
+}
+
+function phoneSubmitButtonLabel(loading: boolean, phoneStep: 'send' | 'confirm'): string {
+  if (loading) return '…'
+  if (phoneStep === 'send') return 'Send code'
+  return 'Verify'
 }
 
 function GoogleIcon() {
