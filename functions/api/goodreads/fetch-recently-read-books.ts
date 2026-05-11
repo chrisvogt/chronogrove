@@ -43,7 +43,14 @@ function parseGoogleBooksApiErrorBody(error: unknown): unknown | null {
   if (raw == null) {
     return null
   }
-  return typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (typeof raw !== 'string') {
+    return raw
+  }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
 }
 
 async function fetchGoogleBookByTitleFallback(

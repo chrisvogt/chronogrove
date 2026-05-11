@@ -148,6 +148,7 @@ function hostPortFirst(hostOrHostPort: string): string {
   return host.toLowerCase()
 }
 
+/** Express 5 may surface a captured segment as `string[]`; using only `typeof x === 'string'` yields undefined and false 400s on sync routes. */
 function normalizeExpressPathParam(param: unknown): string | undefined {
   if (typeof param === 'string') {
     return param
@@ -157,6 +158,60 @@ function normalizeExpressPathParam(param: unknown): string | undefined {
     return typeof first === 'string' ? first : undefined
   }
   return undefined
+}
+
+const MANUAL_SYNC_PROVIDER_FROM_PATH_JSON =
+  /^\/api\/widgets\/sync\/([^/]+)\/?$/u
+const MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM =
+  /^\/api\/widgets\/sync\/([^/]+)\/stream\/?$/u
+
+function parseManualSyncProviderSegmentFromRequest(
+  req: express.Request,
+  route: 'json' | 'stream',
+): string | undefined {
+  const re = route === 'stream' ? MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM : MANUAL_SYNC_PROVIDER_FROM_PATH_JSON
+  const pathStr = (req.path ?? '').split('?')[0] ?? ''
+  let m = pathStr.match(re)
+  let segment = m?.[1]?.trim()
+  if (segment) {
+    return segment.toLowerCase()
+  }
+  const orig = req.originalUrl ?? req.url
+  if (orig) {
+    try {
+      const u = new URL(orig, 'http://localhost')
+      m = u.pathname.match(re)
+      segment = m?.[1]?.trim()
+      if (segment) {
+        return segment.toLowerCase()
+      }
+    } catch {
+      /* ignore malformed URL */
+    }
+  }
+  return undefined
+}
+
+/**
+ * Resolves `:provider` for manual sync routes even when `req.params` is missing or oddly shaped
+ * (Express 5 / emulator / proxy edge cases). Prefers a **path-derived** segment when it is a valid
+ * sync provider so a bogus `req.params.provider` (e.g. a literal `stream` segment) cannot override
+ * the URL the client actually requested — a pattern that can look like a strict 50/50 in dev.
+ */
+function resolveManualSyncProvider(
+  req: express.Request,
+  route: 'json' | 'stream',
+): string | undefined {
+  const fromPath = parseManualSyncProviderSegmentFromRequest(req, route)
+  const fromParams = normalizeExpressPathParam(req.params?.provider)?.trim().toLowerCase() || undefined
+
+  if (fromPath && isSyncProviderId(fromPath)) {
+    return fromPath
+  }
+  if (fromParams && isSyncProviderId(fromParams)) {
+    return fromParams
+  }
+  return fromParams ?? fromPath
 }
 
 /**
@@ -610,11 +665,15 @@ export function createExpressApp({
     authenticateUser,
     requireVerifiedEmail,
     async (req, res) => {
-      const providerParam = req.params.provider
-      const provider = typeof providerParam === 'string' ? providerParam : undefined
+      const provider = resolveManualSyncProvider(req, 'stream')
 
       if (!provider || !isSyncProviderId(provider)) {
-        logger.info(`Attempted to sync stream for an unrecognized provider: ${provider}`)
+        logger.info('Attempted to sync stream for an unrecognized provider', {
+          provider,
+          path: req.path,
+          originalUrl: req.originalUrl,
+          params: req.params,
+        })
         res.status(400).send('Unrecognized or unsupported provider.')
         return
       }
@@ -659,11 +718,15 @@ export function createExpressApp({
     authenticateUser,
     requireVerifiedEmail,
     async (req, res) => {
-      const providerParam = req.params.provider
-      const provider = typeof providerParam === 'string' ? providerParam : undefined
+      const provider = resolveManualSyncProvider(req, 'json')
 
       if (!provider || !isSyncProviderId(provider)) {
-        logger.info(`Attempted to sync an unrecognized provider: ${provider}`)
+        logger.info('Attempted to sync an unrecognized provider', {
+          provider,
+          path: req.path,
+          originalUrl: req.originalUrl,
+          params: req.params,
+        })
         res.status(400).send('Unrecognized or unsupported provider.')
         return
       }

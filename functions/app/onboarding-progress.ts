@@ -260,8 +260,8 @@ export function parseOnboardingProgressBody(
     (x): x is OnboardingWizardStep => typeof x === 'string' && isWizardStep(x),
   )
   const usernameResult = parseOptionalUsername(o.username)
-  if (!usernameResult.ok) {
-    return usernameResult
+  if (usernameResult.ok === false) {
+    return { ok: false, error: usernameResult.error }
   }
   const cp = o.connectedProviderIds
   if (!Array.isArray(cp)) {
@@ -273,8 +273,8 @@ export function parseOnboardingProgressBody(
       (ONBOARDING_OAUTH_PROVIDER_IDS as readonly string[]).includes(x),
   )
   const customDomainResult = parseOptionalCustomDomain(o.customDomain)
-  if (!customDomainResult.ok) {
-    return customDomainResult
+  if (customDomainResult.ok === false) {
+    return { ok: false, error: customDomainResult.error }
   }
   return {
     ok: true,

@@ -113,5 +113,5 @@ export const handleUserCreation = registerFirebaseUserCreationTrigger(async (eve
 export const app = registerFirebaseHttpFunction(async (req, res) => {
   const { ensureRuntimeConfigApplied } = getBackendBootstrap()
   await ensureRuntimeConfigApplied()
-  expressApp(req, res)
+  expressApp(req as ExpressRequest, res as ExpressResponse)
 }, runtimeSecrets)
