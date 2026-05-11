@@ -18,18 +18,20 @@ function labelForProvider(
   return 'Connected'
 }
 
-export function ProviderConnectionGrid({
-  connectedIds,
-  integrationStatuses = {},
-  onToggle,
-  onOAuthProviderConnect,
-}: {
+type ProviderConnectionGridProps = Readonly<{
   connectedIds: ReadonlySet<string>
   integrationStatuses?: Readonly<Record<string, string>>
   onToggle: (providerId: string) => void
   /** For OAuth-native providers (e.g. Flickr), invoked instead of a plain toggle when linking. */
   onOAuthProviderConnect?: (providerId: string) => void | Promise<void>
-}) {
+}>
+
+export function ProviderConnectionGrid({
+  connectedIds,
+  integrationStatuses = {},
+  onToggle,
+  onOAuthProviderConnect,
+}: ProviderConnectionGridProps) {
   return (
     <div className={styles.providerGrid}>
       {ONBOARDING_PROVIDERS.map((provider) => {
@@ -52,7 +54,7 @@ export function ProviderConnectionGrid({
                   onToggle(provider.id)
                   return
                 }
-                void onOAuthProviderConnect?.(provider.id)
+                Promise.resolve(onOAuthProviderConnect?.(provider.id)).catch(() => {})
                 return
               }
               onToggle(provider.id)

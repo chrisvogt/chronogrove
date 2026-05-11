@@ -6,10 +6,10 @@ export type OverviewQuickLink = { href: string; label: string; external?: boolea
  * Dashboard hero “quick links”: routes that complement the main nav (not Schema / Status / Try API / Sync).
  */
 export function buildOverviewQuickLinks(input: {
-  user: unknown | null
+  user: unknown
   publicUsername: string | null
 }): OverviewQuickLink[] {
-  if (!input.user) {
+  if (input.user == null) {
     return [
       { href: '/docs/', label: 'Docs' },
       { href: '/about/', label: 'About' },

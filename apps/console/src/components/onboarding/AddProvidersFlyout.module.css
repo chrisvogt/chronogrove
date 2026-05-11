@@ -23,6 +23,11 @@
   }
 }
 
+dialog.panel {
+  margin: 0;
+  max-width: none;
+}
+
 .panel {
   position: fixed;
   top: 0;

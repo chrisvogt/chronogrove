@@ -44,7 +44,7 @@ export function isAuthlessPublicStatusSurface(
   pathname: string | null | undefined,
   browserHostname: string | undefined
 ): boolean {
-  if (pathname != null && pathname.startsWith('/u/')) {
+  if (pathname?.startsWith('/u/')) {
     return true
   }
   if (pathname === '/' || pathname === '') {

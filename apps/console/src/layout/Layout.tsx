@@ -90,7 +90,7 @@ const buildCommitUrl = buildSha
   ? `https://github.com/chrisvogt/chronogrove/commit/${buildSha}`
   : null
 
-export function Layout({ children, user, activeSection, onSectionChange }: LayoutProps) {
+export function Layout({ children, user, activeSection, onSectionChange }: Readonly<LayoutProps>) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const tenantHost = getTenantDisplayHost()
   const activeCopy =
@@ -215,10 +215,11 @@ export function Layout({ children, user, activeSection, onSectionChange }: Layou
         type="button"
         className={styles.overlay}
         data-open={sidebarOpen ? 'true' : undefined}
-        aria-label="Close navigation menu"
         tabIndex={sidebarOpen ? 0 : -1}
         onClick={() => setSidebarOpen(false)}
-      />
+      >
+        <span className={styles.srOnly}>Close navigation menu</span>
+      </button>
     </div>
   )
 }

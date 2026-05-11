@@ -12,7 +12,7 @@ import settingsStyles from '@/sections/UserSettingsSection.module.css'
 
 export { DELETE_ACCOUNT_CONFIRM_PHRASE }
 
-export function SettingsDeleteAccount({ apiSessionReady }: { apiSessionReady: boolean }) {
+export function SettingsDeleteAccount({ apiSessionReady }: Readonly<{ apiSessionReady: boolean }>) {
   const router = useRouter()
   const { user, logout } = useAuth()
   const [phrase, setPhrase] = useState('')
@@ -68,7 +68,7 @@ export function SettingsDeleteAccount({ apiSessionReady }: { apiSessionReady: bo
       </p>
 
       <label className={settingsStyles.dangerLabel} htmlFor="delete-account-confirm">
-        Confirmation
+        <span>Confirmation</span>
         <input
           id="delete-account-confirm"
           type="text"
@@ -91,7 +91,9 @@ export function SettingsDeleteAccount({ apiSessionReady }: { apiSessionReady: bo
         type="button"
         className={settingsStyles.btnDanger}
         disabled={!canDelete}
-        onClick={() => void handleDelete()}
+        onClick={() => {
+          handleDelete().catch(() => {})
+        }}
       >
         {deleting ? 'Deleting…' : 'Delete my account permanently'}
       </button>

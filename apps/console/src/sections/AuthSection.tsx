@@ -117,7 +117,7 @@ export function AuthSection() {
           <div role="tabpanel" id="auth-panel-email" aria-labelledby="auth-tab-email">
             <form onSubmit={handleEmailSubmit} className={styles.form}>
               <label className={styles.label}>
-                Email
+                <span>Email</span>
                 <input
                   type="email"
                   value={email}
@@ -129,7 +129,7 @@ export function AuthSection() {
                 />
               </label>
               <label className={styles.label}>
-                Password
+                <span>Password</span>
                 <input
                   type="password"
                   value={password}
