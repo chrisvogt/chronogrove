@@ -7,6 +7,8 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.27] - 2026-05-10
+
 ### Fixed
 
 - **`SettingsProfileIdentity`** — Onboarding **`load()`** no longer forces the full-page loading state when **`progressRef`** already holds a payload, so overlapping or Strict Mode effect runs do not unmount the username block and wipe in-flight edits (flaky **`/is available`** assertions under **`test:coverage`**).
@@ -14,7 +16,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - **`baseUrl`** / **`tenant-api-root-map`** — Production-like hostname stubs use **`console.chronogrove.com`** and **`operator.unmapped.example`** instead of a private deploy host.
-- **`SettingsProfileIdentity`** — **`mockUser()`** includes a stable **`uid`**; username-save flows wait for **`Save username`** to become enabled instead of matching availability hint text.
+- **`SettingsProfileIdentity`** — **`mockUser()`** includes a stable **`uid`**; username-save flows wait for **`Save username`** to become enabled instead of matching availability hint text. Clearing the username (advanced) uses **`userEvent.clear`**, **`waitFor`** an empty input, and **`waitUntilSaveUsernameEnabled`** before **`Save username`** so **`fireEvent.change` + `user.click`** cannot race on slow CI.
 
 ## [0.6.26] - 2026-05-09
 
