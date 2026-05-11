@@ -61,12 +61,12 @@ const reviewToAiEntry = (review: Record<string, unknown>): GoodreadsAiReadShelfE
 
   const readAt = getXmlTextOrUndefined(review.read_at)
   const dateAdded = getXmlTextOrUndefined(review.date_added)
-  const finishedOrAddedDate =
-    readAt && readAt.length > 3
-      ? readAt
-      : dateAdded && dateAdded.length > 3
-        ? dateAdded
-        : null
+  let finishedOrAddedDate: string | null = null
+  if (readAt && readAt.length > 3) {
+    finishedOrAddedDate = readAt
+  } else if (dateAdded && dateAdded.length > 3) {
+    finishedOrAddedDate = dateAdded
+  }
 
   const rating = getXmlTextOrUndefined(review.rating)
 
@@ -83,7 +83,7 @@ const parseReviewListPage = (body: string): Promise<GoodreadsAiReadShelfEntry[]>
   new Promise((resolve, reject) => {
     parseString(body, (error, response) => {
       if (error) {
-        reject(error)
+        reject(error instanceof Error ? error : new Error(String(error)))
         return
       }
 

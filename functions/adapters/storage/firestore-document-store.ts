@@ -10,9 +10,11 @@ function toCollectionAndDocument(path: string): { collectionPath: string; docume
     throw new Error(`Invalid document path: ${path}`)
   }
 
+  const documentId = segments[segments.length - 1]!
+
   return {
     collectionPath: segments.slice(0, -1).join('/'),
-    documentId: segments.at(-1)!,
+    documentId,
   }
 }
 

@@ -20,6 +20,7 @@ import {
   CanvasTexture,
   DoubleSide,
 } from 'three'
+import type { Material } from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
@@ -134,10 +135,18 @@ function drawSaguaro(
   ctx.arc(cx, baseY - h, tw, 0, Math.PI * 2)
   ctx.fill()
 
-  const armN = rng() > 0.25 ? (rng() > 0.55 ? 2 : 1) : 0
+  let armN = 0
+  if (rng() > 0.25) {
+    armN = rng() > 0.55 ? 2 : 1
+  }
   let prevSide = 0
   for (let a = 0; a < armN; a++) {
-    const side = a === 0 ? (rng() > 0.5 ? 1 : -1) : -prevSide
+    let side: number
+    if (a === 0) {
+      side = rng() > 0.5 ? 1 : -1
+    } else {
+      side = -prevSide
+    }
     prevSide = side
     const armY = baseY - h * (0.35 + rng() * 0.3)
     const reach = tw * 1.5 + h * (0.08 + rng() * 0.1)
@@ -231,9 +240,26 @@ function makeSilhouette(
   return tex
 }
 
+function disposeMaterialResource(m: Material | Material[]): void {
+  if (Array.isArray(m)) {
+    for (const mat of m) mat.dispose()
+    return
+  }
+  m.dispose()
+}
+
+function disposeMeshOrPointsResources(obj: Mesh | Points, disposed: Set<BufferGeometry>): void {
+  const { geometry } = obj
+  if (!disposed.has(geometry)) {
+    disposed.add(geometry)
+    geometry.dispose()
+  }
+  disposeMaterialResource(obj.material)
+}
+
 /* ── Component ───────────────────────────────────────────────────────── */
 
-export default function SonoranDuskScene({ className }: { className?: string }) {
+export default function SonoranDuskScene({ className }: Readonly<{ className?: string }>) {
   const mountRef = useRef<HTMLDivElement>(null)
   const mouseRef = useRef({ x: 0, y: 0 })
   const smoothRef = useRef({ x: 0, y: 0 })
@@ -500,13 +526,7 @@ export default function SonoranDuskScene({ className }: { className?: string }) 
       const disposed = new Set<BufferGeometry>()
       scene.traverse((obj) => {
         if (obj instanceof Mesh || obj instanceof Points) {
-          if (!disposed.has(obj.geometry)) {
-            disposed.add(obj.geometry)
-            obj.geometry.dispose()
-          }
-          const m = obj.material
-          if (Array.isArray(m)) m.forEach((mt) => mt.dispose())
-          else m.dispose()
+          disposeMeshOrPointsResources(obj, disposed)
         }
       })
       bloom.dispose()

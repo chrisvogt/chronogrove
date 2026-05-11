@@ -39,10 +39,10 @@ const accountDeleteExample = {
 function SchemaResponseCell({
   example,
   errorHint,
-}: {
+}: Readonly<{
   example: unknown
   errorHint?: string
-}) {
+}>) {
   const [showHighlighted, setShowHighlighted] = useState(false)
   const compact = JSON.stringify(example)
   const preview = compact.length > 96 ? `${compact.slice(0, 93)}…` : compact
@@ -223,7 +223,7 @@ export function SchemaSection() {
                   />
                 </td>
                 <td className={styles.notes}>
-                  <code className={styles.inlineCode}>Authorization: Bearer &lt;Firebase ID token&gt;</code>
+                  <code className={styles.inlineCode}>Authorization: Bearer &lt;Firebase ID token&gt;</code>{' '}
                   — sets HTTP-only session cookie.
                 </td>
               </tr>

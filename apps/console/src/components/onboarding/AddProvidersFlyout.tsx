@@ -21,11 +21,11 @@ export function AddProvidersFlyout({
   open,
   onClose,
   onSaved,
-}: {
+}: Readonly<{
   open: boolean
   onClose: () => void
   onSaved?: () => void
-}) {
+}>) {
   const { user, apiSessionReady } = useAuth()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -34,7 +34,7 @@ export function AddProvidersFlyout({
   const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, string>>({})
   const [progressReady, setProgressReady] = useState(false)
   const baselineRef = useRef<OnboardingProgressPayload | null>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDialogElement>(null)
 
   const load = useCallback(async () => {
     if (!user || !apiSessionReady) return
@@ -67,7 +67,7 @@ export function AddProvidersFlyout({
       setProgressReady(false)
       return
     }
-    void load()
+    load().catch(() => {})
   }, [open, load])
 
   useEffect(() => {
@@ -106,9 +106,10 @@ export function AddProvidersFlyout({
       }
       await load()
     } catch (e) {
-      const label =
-        providerId === 'discogs' ? 'Discogs' : providerId === 'github' ? 'GitHub' : 'Flickr'
-      setError(e instanceof Error ? e.message : `Could not cancel ${label} link.`)
+      let providerLabel = 'Flickr'
+      if (providerId === 'discogs') providerLabel = 'Discogs'
+      else if (providerId === 'github') providerLabel = 'GitHub'
+      setError(e instanceof Error ? e.message : `Could not cancel ${providerLabel} link.`)
     }
   }
 
@@ -192,9 +193,9 @@ export function AddProvidersFlyout({
         aria-label="Close panel"
         onClick={onClose}
       />
-      <aside
+      <dialog
         className={styles.panel}
-        role="dialog"
+        open
         aria-modal="true"
         aria-labelledby="add-providers-title"
         ref={panelRef}
@@ -238,6 +239,7 @@ export function AddProvidersFlyout({
           {user && loading && (
             <div className={styles.loading}>
               <span className="spinner" aria-hidden />
+              {' '}
               Loading your connections…
             </div>
           )}
@@ -251,21 +253,39 @@ export function AddProvidersFlyout({
           )}
           {user && !loading && integrationStatuses.flickr === 'pending_oauth' && (
             <p className={styles.cancelFlickr}>
-              <button type="button" className={styles.cancelFlickrBtn} onClick={() => void cancelOAuthPending('flickr')}>
+              <button
+                type="button"
+                className={styles.cancelFlickrBtn}
+                onClick={() => {
+                  cancelOAuthPending('flickr').catch(() => {})
+                }}
+              >
                 Cancel Flickr link
               </button>
             </p>
           )}
           {user && !loading && integrationStatuses.discogs === 'pending_oauth' && (
             <p className={styles.cancelFlickr}>
-              <button type="button" className={styles.cancelFlickrBtn} onClick={() => void cancelOAuthPending('discogs')}>
+              <button
+                type="button"
+                className={styles.cancelFlickrBtn}
+                onClick={() => {
+                  cancelOAuthPending('discogs').catch(() => {})
+                }}
+              >
                 Cancel Discogs link
               </button>
             </p>
           )}
           {user && !loading && integrationStatuses.github === 'pending_oauth' && (
             <p className={styles.cancelFlickr}>
-              <button type="button" className={styles.cancelFlickrBtn} onClick={() => void cancelOAuthPending('github')}>
+              <button
+                type="button"
+                className={styles.cancelFlickrBtn}
+                onClick={() => {
+                  cancelOAuthPending('github').catch(() => {})
+                }}
+              >
                 Cancel GitHub link
               </button>
             </p>
@@ -286,13 +306,15 @@ export function AddProvidersFlyout({
               type="button"
               className={obStyles.btnPrimary}
               disabled={saving || !user || loading || !progressReady}
-              onClick={() => void handleSave()}
+              onClick={() => {
+                handleSave().catch(() => {})
+              }}
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </footer>
-      </aside>
+      </dialog>
     </>
   )
 }

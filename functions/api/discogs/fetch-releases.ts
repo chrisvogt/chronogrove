@@ -87,7 +87,7 @@ async function fetchDiscogsReleasesOAuth(oauth: ResolvedDiscogsApiAuth): Promise
 
     const signing = { consumerKey, consumerSecret, oauthToken, oauthTokenSecret }
     const { body } = await discogsOAuthGotGet(url, signing)
-    const data = JSON.parse(body as string) as {
+    const data = JSON.parse(body) as {
       releases: DiscogsCollectionReleaseItem[]
       pagination: { page: number; pages: number }
     }

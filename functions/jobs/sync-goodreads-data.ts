@@ -121,12 +121,7 @@ const processUpdatesWithMedia = async (
   const updatesWithMedia: GoodreadsUpdateWithMedia[] = updates.map((update): GoodreadsUpdateWithMedia => {
     // Get ISBN from the update's book
     let isbn: string | null = null
-    if (update.type === 'userstatus' && update.book) {
-      const isbn13 = getXmlTextOrNull(update.book.isbn13)
-      const isbn10 = getXmlTextOrNull(update.book.isbn)
-      isbn = isbn13 ?? isbn10
-    } else if (update.type === 'review' && update.book) {
-      // Review updates might not have ISBN, but check anyway
+    if ((update.type === 'userstatus' || update.type === 'review') && update.book) {
       const isbn13 = getXmlTextOrNull(update.book.isbn13)
       const isbn10 = getXmlTextOrNull(update.book.isbn)
       isbn = isbn13 ?? isbn10
@@ -135,7 +130,7 @@ const processUpdatesWithMedia = async (
     // If we have ISBN, try to match with existing books
     if (isbn) {
       const matchingBook = booksByISBN.get(isbn) || booksByISBN.get(isbn.replace(/-/g, ''))
-      if (matchingBook && matchingBook.cdnMediaURL) {
+      if (matchingBook?.cdnMediaURL) {
         // Book already exists, use its CDN URL
         const updateWithMedia: GoodreadsUpdateWithMedia = { ...update }
         updateWithMedia.cdnMediaURL = matchingBook.cdnMediaURL
@@ -169,7 +164,7 @@ const processUpdatesWithMedia = async (
     >()
     updatesNeedingBooks.forEach(({ update, isbn }) => {
       const book = update.book
-      if (!book || !book.title) return
+      if (!book?.title) return
       
       // Use ISBN as key if available, otherwise use title
       const key = isbn ? `isbn:${isbn}` : `title:${book.title.toLowerCase().trim()}`

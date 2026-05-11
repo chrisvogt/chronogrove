@@ -5,6 +5,26 @@ import type { SteamSummaryInput } from '../../types/steam.js'
 import { requestAiSummaryCompletion } from '../../utils/ai-summary-messages.js'
 import extractJsonFromAiResponse from '../../utils/extract-json-from-ai-response.js'
 
+function messageFromUnknownError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === 'string') {
+    return error
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const m = (error as { message: unknown }).message
+    if (typeof m === 'string') {
+      return m
+    }
+  }
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return 'Unknown error'
+  }
+}
+
 /**
  * Generate AI summary of Steam gaming data (LLM JSON → HTML paragraphs).
  */
@@ -71,8 +91,7 @@ Total Games Owned: ${metrics.find(m => m.id === 'owned-games-count')?.value || 0
     return typeof raw === 'string' ? raw : ''
   } catch (error: unknown) {
     logger.error('Error generating Steam AI summary:', error)
-    const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Failed to generate AI summary: ${message}`, { cause: error })
+    throw new Error(`Failed to generate AI summary: ${messageFromUnknownError(error)}`, { cause: error })
   }
 }
 

@@ -68,6 +68,13 @@
   z-index: 80;
 }
 
+.menuThemeFieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .menuSectionLabel {
   margin: 0.2rem 0.5rem 0.25rem;
   font-size: 0.65rem;

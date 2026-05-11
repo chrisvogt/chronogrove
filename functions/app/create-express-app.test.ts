@@ -680,6 +680,37 @@ describe('createExpressApp auth and session branches', () => {
       }
     })
 
+    it('honors x-chronogrove-public-host when Host is a Cloud Run hostname (SSR probe)', async () => {
+      const prev = process.env.WIDGET_USER_ID_BY_HOSTNAME
+      process.env.WIDGET_USER_ID_BY_HOSTNAME = JSON.stringify({
+        'widgets.run.example': 'run-tenant-user',
+      })
+      try {
+        const app = await buildApp()
+        const { getWidgetContent } = await import('../widgets/get-widget-content.js')
+        vi.mocked(getWidgetContent).mockClear()
+
+        await request(app)
+          .get('/api/widgets/spotify')
+          .set('Host', 'my-service-abc123-uc.a.run.app')
+          .set('x-chronogrove-public-host', 'widgets.run.example')
+          .expect(200)
+
+        expect(vi.mocked(getWidgetContent)).toHaveBeenCalledWith(
+          'spotify',
+          'run-tenant-user',
+          documentStore,
+          expect.anything(),
+        )
+      } finally {
+        if (prev === undefined) {
+          delete process.env.WIDGET_USER_ID_BY_HOSTNAME
+        } else {
+          process.env.WIDGET_USER_ID_BY_HOSTNAME = prev
+        }
+      }
+    })
+
     it('returns 404 when uid query is invalid', async () => {
       const app = await buildApp()
 
@@ -855,7 +886,8 @@ describe('createExpressApp auth and session branches', () => {
     )
   })
 
-  it('treats array sync provider params as unsupported', async () => {
+  it('accepts array-shaped sync provider params (uses first segment; Express 5)', async () => {
+    const { runSyncForProvider } = await import('../services/sync-manual.js')
     const app = await buildApp()
     const syncRouteLayer = app.router.stack.find(
       (layer) => layer.route?.path === '/api/widgets/sync/:provider'
@@ -876,11 +908,11 @@ describe('createExpressApp auth and session branches', () => {
 
     await syncHandler?.(req, res)
 
-    expect(logger.info).toHaveBeenCalledWith(
-      'Attempted to sync an unrecognized provider: undefined'
+    expect(runSyncForProvider).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'discogs' }),
     )
-    expect(res.status).toHaveBeenCalledWith(400)
-    expect(res.send).toHaveBeenCalledWith('Unrecognized or unsupported provider.')
+    expect(res.status).toHaveBeenCalledWith(200)
+    expect(res.send).toHaveBeenCalled()
   })
 
   it('widget GET rateLimit keyGenerator includes request path', async () => {

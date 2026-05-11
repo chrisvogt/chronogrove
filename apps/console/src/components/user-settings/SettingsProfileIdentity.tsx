@@ -55,7 +55,7 @@ export function SettingsUsernameBlock({
   runIdentitySave,
   isSaving,
   subsectionClassName,
-}: {
+}: Readonly<{
   user: User
   progress: OnboardingProgressPayload
   progressRef: MutableRefObject<OnboardingProgressPayload | null>
@@ -64,7 +64,7 @@ export function SettingsUsernameBlock({
   runIdentitySave: <T>(fn: () => Promise<T>) => Promise<T>
   isSaving: boolean
   subsectionClassName: string
-}) {
+}>) {
   const saved = (progress.username ?? '').toLowerCase()
   const [usernameDraft, setUsernameDraft] = useState(saved)
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle')
@@ -120,7 +120,9 @@ export function SettingsUsernameBlock({
       return
     }
     if (sanitized.length >= 3) {
-      timerRef.current = setTimeout(() => void checkUsername(sanitized), 500)
+      timerRef.current = setTimeout(() => {
+        void checkUsername(sanitized)
+      }, 500)
     }
   }
 
@@ -227,7 +229,9 @@ export function SettingsUsernameBlock({
         type="button"
         className={obStyles.btnPrimary}
         disabled={!canSaveUsername}
-        onClick={() => void saveUsername()}
+        onClick={() => {
+          saveUsername().catch(() => {})
+        }}
       >
         {isSaving ? 'Saving…' : 'Save username'}
       </button>
@@ -250,7 +254,7 @@ export function SettingsCustomDomainBlock({
   onProgressUpdated,
   runIdentitySave,
   isSaving,
-}: {
+}: Readonly<{
   user: User
   progress: OnboardingProgressPayload
   progressRef: MutableRefObject<OnboardingProgressPayload | null>
@@ -258,7 +262,7 @@ export function SettingsCustomDomainBlock({
   onProgressUpdated: (p: OnboardingProgressPayload) => void
   runIdentitySave: <T>(fn: () => Promise<T>) => Promise<T>
   isSaving: boolean
-}) {
+}>) {
   const saved = progress.customDomain ?? ''
   const [domainDraft, setDomainDraft] = useState(saved)
   const [dnsStatus, setDnsStatus] = useState<DnsStatus>('idle')
@@ -313,7 +317,9 @@ export function SettingsCustomDomainBlock({
     if (!domainDraft) return
     void checkDns(domainDraft)
     clearDnsVerificationTimers({ dnsTimerRef, dnsPollingRef })
-    dnsPollingRef.current = setInterval(() => void checkDns(domainDraft), 15000)
+    dnsPollingRef.current = setInterval(() => {
+      void checkDns(domainDraft)
+    }, 15000)
   }
 
   const unchanged = domainDraft === saved
@@ -355,7 +361,7 @@ export function SettingsCustomDomainBlock({
       </p>
 
       <label className={obStyles.label} htmlFor="settings-domain-input">
-        Domain name
+        <span>Domain name</span>
         <input
           id="settings-domain-input"
           type="text"
@@ -389,6 +395,7 @@ export function SettingsCustomDomainBlock({
             {dnsStatus === 'checking' ? (
               <>
                 <span className="spinner" aria-hidden />
+                {' '}
                 Verifying…
               </>
             ) : (
@@ -439,7 +446,9 @@ export function SettingsCustomDomainBlock({
           type="button"
           className={obStyles.btnPrimary}
           disabled={!canSaveDomain}
-          onClick={() => void saveDomain()}
+          onClick={() => {
+            saveDomain().catch(() => {})
+          }}
         >
           {isSaving ? 'Saving…' : 'Save domain'}
         </button>
@@ -457,10 +466,10 @@ export function SettingsCustomDomainBlock({
 export function SettingsProfileIdentity({
   user,
   apiSessionReady,
-}: {
+}: Readonly<{
   user: User
   apiSessionReady: boolean
-}) {
+}>) {
   const baseUrl = getAppBaseUrl()
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState<OnboardingProgressPayload | null>(null)

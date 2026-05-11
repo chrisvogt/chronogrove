@@ -202,6 +202,7 @@
 
 /* Chatbot-style “thinking” strip: one line at a time, no history (like Cursor / many AI UIs). */
 .thinkingShell {
+  display: block;
   margin-top: 0.85rem;
   padding: 0.85rem 1rem;
   border-radius: 16px;

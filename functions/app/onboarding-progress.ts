@@ -142,7 +142,7 @@ export function buildClientPayloadFromFirestore(params: {
 
   const noOnboardingDoc =
     doc == null ||
-    !Object.prototype.hasOwnProperty.call(doc, 'onboarding') ||
+    !Object.hasOwn(doc as object, 'onboarding') ||
     rawOnboarding === null ||
     typeof rawOnboarding !== 'object'
 
@@ -162,11 +162,14 @@ export function buildClientPayloadFromFirestore(params: {
     ? (legacy.currentStep ?? userOnboarding.currentStep)
     : userOnboarding.currentStep
 
-  const completedSteps = noOnboardingDoc
-    ? legacy.completedSteps ?? userOnboarding.completedSteps
-    : userOnboarding.completedSteps.length > 0
-      ? userOnboarding.completedSteps
-      : (legacy.completedSteps ?? base.completedSteps)
+  let completedSteps: OnboardingWizardStep[]
+  if (noOnboardingDoc) {
+    completedSteps = legacy.completedSteps ?? userOnboarding.completedSteps
+  } else if (userOnboarding.completedSteps.length > 0) {
+    completedSteps = userOnboarding.completedSteps
+  } else {
+    completedSteps = legacy.completedSteps ?? base.completedSteps
+  }
 
   const customDomain =
     tenantHostnameFromUserDoc(doc) ?? legacy.customDomain ?? base.customDomain
@@ -200,6 +203,44 @@ export function normalizeOnboardingProgress(
   })
 }
 
+function parseOptionalUsername(
+  un: unknown,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  let username: string | null = null
+  if (un !== null && un !== undefined) {
+    if (typeof un !== 'string') {
+      return { ok: false, error: 'Invalid username' }
+    }
+    if (un.length > 0) {
+      const lowered = un.toLowerCase()
+      if (!ONBOARDING_USERNAME_PATTERN.test(lowered)) {
+        return { ok: false, error: 'Invalid username format' }
+      }
+      username = lowered
+    }
+  }
+  return { ok: true, value: username }
+}
+
+function parseOptionalCustomDomain(
+  cd: unknown,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  let customDomain: string | null = null
+  if (cd !== null && cd !== undefined) {
+    if (typeof cd !== 'string') {
+      return { ok: false, error: 'Invalid customDomain' }
+    }
+    const t = cd.toLowerCase().trim()
+    if (t.length > 0) {
+      if (t.length > 253 || !DOMAIN_FORMAT.test(t)) {
+        return { ok: false, error: 'Invalid domain' }
+      }
+      customDomain = t
+    }
+  }
+  return { ok: true, value: customDomain }
+}
+
 export function parseOnboardingProgressBody(
   body: unknown
 ): { ok: true; value: OnboardingProgressPayload } | { ok: false; error: string } {
@@ -218,19 +259,9 @@ export function parseOnboardingProgressBody(
   const completedSteps = compRaw.filter(
     (x): x is OnboardingWizardStep => typeof x === 'string' && isWizardStep(x),
   )
-  const un = o.username
-  let username: string | null = null
-  if (un !== null && un !== undefined) {
-    if (typeof un !== 'string') {
-      return { ok: false, error: 'Invalid username' }
-    }
-    if (un.length > 0) {
-      const lowered = un.toLowerCase()
-      if (!ONBOARDING_USERNAME_PATTERN.test(lowered)) {
-        return { ok: false, error: 'Invalid username format' }
-      }
-      username = lowered
-    }
+  const usernameResult = parseOptionalUsername(o.username)
+  if (usernameResult.ok === false) {
+    return { ok: false, error: usernameResult.error }
   }
   const cp = o.connectedProviderIds
   if (!Array.isArray(cp)) {
@@ -241,28 +272,18 @@ export function parseOnboardingProgressBody(
       typeof x === 'string' &&
       (ONBOARDING_OAUTH_PROVIDER_IDS as readonly string[]).includes(x),
   )
-  const cd = o.customDomain
-  let customDomain: string | null = null
-  if (cd !== null && cd !== undefined) {
-    if (typeof cd !== 'string') {
-      return { ok: false, error: 'Invalid customDomain' }
-    }
-    const t = cd.toLowerCase().trim()
-    if (t.length > 0) {
-      if (t.length > 253 || !DOMAIN_FORMAT.test(t)) {
-        return { ok: false, error: 'Invalid domain' }
-      }
-      customDomain = t
-    }
+  const customDomainResult = parseOptionalCustomDomain(o.customDomain)
+  if (customDomainResult.ok === false) {
+    return { ok: false, error: customDomainResult.error }
   }
   return {
     ok: true,
     value: {
       currentStep: currentStepRaw,
       completedSteps,
-      username,
+      username: usernameResult.value,
       connectedProviderIds,
-      customDomain,
+      customDomain: customDomainResult.value,
       updatedAt: toStoredDateTime(),
     },
   }

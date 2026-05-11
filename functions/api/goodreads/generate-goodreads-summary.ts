@@ -7,6 +7,26 @@ import extractJsonFromAiResponse from '../../utils/extract-json-from-ai-response
 import type { GoodreadsAiReadShelfEntry } from '../../types/goodreads.js'
 import type { GoodreadsWidgetDocument } from '../../types/widget-content.js'
 
+function formatUnknownSummaryError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === 'string') {
+    return error
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const m = (error as { message: unknown }).message
+    if (typeof m === 'string') {
+      return m
+    }
+  }
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return 'Unknown error'
+  }
+}
+
 export type GenerateGoodreadsSummaryOptions = {
   /** Full read shelf from Goodreads XML only; drives long-tail context in the prompt */
   fullReadShelf?: GoodreadsAiReadShelfEntry[]
@@ -111,8 +131,9 @@ Goodreads Profile: ${profile?.name || profile?.username || 'Chris Vogt'}
     return normalizeParagraphSummary(sanitizedResponse)
   } catch (error: unknown) {
     logger.error('Error generating Goodreads AI summary:', error)
-    const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Failed to generate AI summary: ${message}`, { cause: error })
+    throw new Error(`Failed to generate AI summary: ${formatUnknownSummaryError(error)}`, {
+      cause: error,
+    })
   }
 }
 

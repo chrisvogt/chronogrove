@@ -91,6 +91,17 @@ async function fetchPhotosOAuth(auth: ResolvedFlickrApiAuth): Promise<FlickrPhot
   }
 }
 
+function flickrFieldString(value: unknown): string | undefined {
+  if (value == null) {
+    return undefined
+  }
+  const t = typeof value
+  if (t === 'string' || t === 'number' || t === 'boolean') {
+    return String(value)
+  }
+  return undefined
+}
+
 function normalizePhotosResponse(
   body: unknown,
   canonicalUserId: string
@@ -109,16 +120,17 @@ function normalizePhotosResponse(
 
   const photos: FlickrPhoto[] = res.photos.photo.map((photo) => {
     const desc = photo.description as { _content?: string } | undefined
+    const idStr = flickrFieldString(photo.id)
     return {
-      id: photo.id != null ? String(photo.id) : undefined,
-      title: photo.title != null ? String(photo.title) : undefined,
+      id: idStr,
+      title: flickrFieldString(photo.title),
       description: desc?._content ?? '',
-      dateTaken: photo.datetaken != null ? String(photo.datetaken) : undefined,
-      ownerName: photo.ownername != null ? String(photo.ownername) : undefined,
-      thumbnailUrl: photo.url_q != null ? String(photo.url_q) : undefined,
-      mediumUrl: photo.url_m != null ? String(photo.url_m) : undefined,
-      largeUrl: photo.url_l != null ? String(photo.url_l) : undefined,
-      link: `https://www.flickr.com/photos/${canonicalUserId}/${photo.id}`,
+      dateTaken: flickrFieldString(photo.datetaken),
+      ownerName: flickrFieldString(photo.ownername),
+      thumbnailUrl: flickrFieldString(photo.url_q),
+      mediumUrl: flickrFieldString(photo.url_m),
+      largeUrl: flickrFieldString(photo.url_l),
+      link: `https://www.flickr.com/photos/${canonicalUserId}/${idStr ?? ''}`,
     }
   })
 

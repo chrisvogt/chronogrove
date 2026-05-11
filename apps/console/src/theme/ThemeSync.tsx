@@ -10,7 +10,11 @@ import { isChronogroveTheme, normalizeChronogroveThemeId } from '@/theme/chronog
  * After Firebase session is ready, load `settings.theme` from the API and align next-themes.
  * Logout does not reset UI theme (keep last choice until next full load).
  */
-export function ThemeSync({ children }: { children: ReactNode }) {
+type ThemeSyncProps = Readonly<{
+  children: ReactNode
+}>
+
+export function ThemeSync({ children }: ThemeSyncProps) {
   const { user, apiSessionReady } = useAuth()
   const { setTheme, resolvedTheme } = useTheme()
 

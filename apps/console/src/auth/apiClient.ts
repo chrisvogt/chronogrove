@@ -17,11 +17,7 @@ export class SessionCreateError extends Error {
 }
 
 export class ApiClient {
-  private baseUrl: string
-
-  constructor(baseUrl = '') {
-    this.baseUrl = baseUrl
-  }
+  constructor(private readonly baseUrl = '') {}
 
   getAuthToken(): string | null {
     const sessionCookie = this.getSessionCookie()

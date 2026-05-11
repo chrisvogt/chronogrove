@@ -63,15 +63,14 @@ describe('Layout', () => {
     expect(onSectionChange).toHaveBeenCalledWith('overview')
 
     const menuToggle = screen.getByRole('button', { name: 'Open navigation menu' })
-    const overlay = document.querySelector('[class*="overlay"]') as HTMLDivElement | null
-    expect(overlay).not.toBeNull()
-    expect(overlay).toHaveAttribute('aria-hidden', 'true')
+    const overlay = screen.getByRole('button', { name: 'Close navigation menu' })
+    expect(overlay).not.toHaveAttribute('data-open')
 
     await user.click(menuToggle)
-    expect(overlay).toHaveAttribute('aria-hidden', 'false')
+    expect(overlay).toHaveAttribute('data-open', 'true')
 
-    await user.click(overlay!)
-    expect(overlay).toHaveAttribute('aria-hidden', 'true')
+    await user.click(overlay)
+    expect(overlay).not.toHaveAttribute('data-open')
   })
 
   it('shows auth copy and hides protected nav items for signed-out users on auth', async () => {

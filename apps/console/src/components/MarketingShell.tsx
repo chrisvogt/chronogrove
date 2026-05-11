@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 
 import { CHRONOGROVE_GITHUB_REPO, CHRONOGROVE_LICENSE_URL } from '@/lib/chronogroveRepo'
@@ -21,11 +22,11 @@ const DEFAULT_FOOTER =
 export function MarketingShell({
   children,
   footerCopy = DEFAULT_FOOTER,
-}: {
-  children: React.ReactNode
+}: Readonly<{
+  children: ReactNode
   /** Full footer paragraph. Defaults to a short factual description. */
   footerCopy?: string
-}) {
+}>) {
   return (
     <div className={styles.shell}>
       <header className={styles.header}>

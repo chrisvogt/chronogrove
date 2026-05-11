@@ -85,6 +85,29 @@ const getMediaReducer = (storedMediaFileNames: string[] = []) =>
     return acc
   }
 
+function logDiscogsFirestorePayloadSize(
+  logger: ReturnType<typeof getLogger>,
+  documentToSave: Record<string, unknown>,
+  enhancedReleases: DiscogsEnhancedRelease[],
+): void {
+  const documentSizeBytes = Buffer.byteLength(JSON.stringify(documentToSave), 'utf8')
+  const documentSizeKB = Math.round(documentSizeBytes / 1024)
+  const documentSizeMB = Math.round((documentSizeBytes / (1024 * 1024)) * 100) / 100
+
+  logger.info(
+    `Document size before saving: ${documentSizeBytes} bytes (${documentSizeKB} KB, ${documentSizeMB} MB)`,
+    {
+      totalReleases: enhancedReleases.length,
+      releasesWithResource: enhancedReleases.filter((r) => r.resource).length,
+      releasesWithoutResource: enhancedReleases.filter((r) => !r.resource).length,
+      firestoreLimit: 1048576,
+      exceedsLimit: documentSizeBytes > 1048576,
+      sizeReduction:
+        documentSizeBytes > 1048576 ? 'Filtered resource data to reduce size' : 'No filtering needed',
+    },
+  )
+}
+
 const syncDiscogsData = async (
   documentStore: DocumentStore,
   options: SyncJobExecutionOptions = {}
@@ -142,18 +165,7 @@ const syncDiscogsData = async (
       fetchedAt: toStoredDateTime(),
     }
     
-    const documentSizeBytes = Buffer.byteLength(JSON.stringify(documentToSave), 'utf8')
-    const documentSizeKB = Math.round(documentSizeBytes / 1024)
-    const documentSizeMB = Math.round(documentSizeBytes / (1024 * 1024) * 100) / 100
-    
-    logger.info(`Document size before saving: ${documentSizeBytes} bytes (${documentSizeKB} KB, ${documentSizeMB} MB)`, {
-      totalReleases: enhancedReleases.length,
-      releasesWithResource: enhancedReleases.filter(r => r.resource).length,
-      releasesWithoutResource: enhancedReleases.filter(r => !r.resource).length,
-      firestoreLimit: 1048576, // 1MB in bytes
-      exceedsLimit: documentSizeBytes > 1048576,
-      sizeReduction: documentSizeBytes > 1048576 ? 'Filtered resource data to reduce size' : 'No filtering needed',
-    })
+    logDiscogsFirestorePayloadSize(logger, documentToSave, enhancedReleases)
 
     onProgress?.({
       phase: 'discogs.save_raw',

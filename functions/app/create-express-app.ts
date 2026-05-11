@@ -80,12 +80,24 @@ const buildSuccessResponse = <TPayload>(
     payload,
   })
 
+export function formatUnknownFailureMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message
+  }
+  const message = (err as { message?: unknown })?.message
+  if (typeof message === 'string') {
+    return message
+  }
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}
+
 const buildFailureResponse = (err: unknown = {}): { ok: false; error: string } => ({
   ok: false,
-  error:
-    err instanceof Error
-      ? err.message
-      : (err as { message?: string })?.message ?? String(err),
+  error: err instanceof Error ? err.message : formatUnknownFailureMessage(err),
 })
 
 /** Production gate: revisit domain allowlist, MFA, and Firebase Auth policies before a public launch. */
@@ -136,13 +148,83 @@ function hostPortFirst(hostOrHostPort: string): string {
   return host.toLowerCase()
 }
 
+/** Express 5 may surface a captured segment as `string[]`; using only `typeof x === 'string'` yields undefined and false 400s on sync routes. */
+export function normalizeExpressPathParam(param: unknown): string | undefined {
+  if (typeof param === 'string') {
+    return param
+  }
+  if (Array.isArray(param)) {
+    const first = param[0]
+    return typeof first === 'string' ? first : undefined
+  }
+  return undefined
+}
+
+/** Match pathname suffix so provider still resolves when `req.path` includes a mount prefix (e.g. Functions emulator). */
+const MANUAL_SYNC_PROVIDER_FROM_PATH_JSON = /\/api\/widgets\/sync\/([^/]+)\/?$/u
+const MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM = /\/api\/widgets\/sync\/([^/]+)\/stream\/?$/u
+
+export function parseManualSyncProviderSegmentFromRequest(
+  req: express.Request,
+  route: 'json' | 'stream',
+): string | undefined {
+  const re = route === 'stream' ? MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM : MANUAL_SYNC_PROVIDER_FROM_PATH_JSON
+  const tryPathname = (pathname: string): string | undefined => {
+    const pathStr = pathname.split('?')[0] ?? ''
+    const m = pathStr.match(re)
+    const segment = m?.[1]?.trim()
+    return segment ? segment.toLowerCase() : undefined
+  }
+
+  const fromReqPath = tryPathname(req.path ?? '')
+  if (fromReqPath) {
+    return fromReqPath
+  }
+  const orig = req.originalUrl ?? req.url
+  if (orig) {
+    try {
+      const u = new URL(orig, 'http://localhost')
+      const fromOrig = tryPathname(u.pathname)
+      if (fromOrig) {
+        return fromOrig
+      }
+    } catch {
+      /* ignore malformed URL */
+    }
+  }
+  return undefined
+}
+
+/**
+ * Resolves `:provider` for manual sync routes even when `req.params` is missing or oddly shaped
+ * (Express 5 / emulator / proxy edge cases). Prefers a **path-derived** segment when it is a valid
+ * sync provider so a bogus `req.params.provider` (e.g. a literal `stream` segment) cannot override
+ * the URL the client actually requested — a pattern that can look like a strict 50/50 in dev.
+ */
+export function resolveManualSyncProvider(
+  req: express.Request,
+  route: 'json' | 'stream',
+): string | undefined {
+  const fromPath = parseManualSyncProviderSegmentFromRequest(req, route)
+  const fromParams = normalizeExpressPathParam(req.params?.provider)?.trim().toLowerCase() || undefined
+
+  if (fromPath && isSyncProviderId(fromPath)) {
+    return fromPath
+  }
+  if (fromParams && isSyncProviderId(fromParams)) {
+    return fromParams
+  }
+  return fromParams ?? fromPath
+}
+
 /**
  * When the request's own Host / X-Forwarded-Host already name a tenant-facing entrypoint,
  * `x-chronogrove-public-host` must not override them (any client could set that header).
  * SSR status probes call the Functions URL directly; there the Host is infrastructure-only,
  * so the console-sent probe header is applied.
  */
-function isInfrastructurePublicWidgetHostname(hostname: string): boolean {
+/** @internal Exported for tests — loopback / empty labels gate `x-chronogrove-public-host`. */
+export function isInfrastructurePublicWidgetHostname(hostname: string): boolean {
   const h = hostname.toLowerCase()
   if (!h) {
     return true
@@ -232,7 +314,7 @@ export const requireVerifiedEmail: express.RequestHandler = (req, res, next) => 
 }
 
 export function getSessionAuthError(authHeader: string | undefined): string | null {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     return 'No valid authorization token provided'
   }
   const token = extractBearerToken(authHeader) ?? ''
@@ -254,8 +336,58 @@ export function createExpressApp({
   const sessionCookieBaseOptions = {
     httpOnly: true,
     secure: isProductionEnvironment(),
-    sameSite: (isProductionEnvironment() ? 'strict' : 'lax') as 'strict' | 'lax',
+    sameSite: isProductionEnvironment() ? ('strict' as const) : ('lax' as const),
     path: '/',
+  }
+
+  const verifySessionClaimsFromCookie = async (
+    sessionCookie: string | undefined,
+    logVerificationDetails: boolean
+  ): Promise<AuthClaims | null> => {
+    if (!sessionCookie) {
+      return null
+    }
+    try {
+      const claims = await authService.verifySessionCookie(sessionCookie)
+      if (logVerificationDetails) {
+        logger.info('Session cookie verified successfully')
+      }
+      return claims
+    } catch (error: unknown) {
+      if (logVerificationDetails) {
+        logger.error('Session cookie verification failed', {
+          error: error instanceof Error ? error.message : '',
+          code: (error as { code?: string }).code,
+          stack: error instanceof Error ? error.stack : undefined,
+        })
+      }
+      return null
+    }
+  }
+
+  const verifyBearerClaimsFromHeader = async (
+    bearerToken: string | null,
+    logVerificationDetails: boolean,
+    requestPath: string
+  ): Promise<AuthClaims | null> => {
+    if (!bearerToken) {
+      return null
+    }
+    try {
+      const claims = await authService.verifyIdToken(bearerToken)
+      if (logVerificationDetails) {
+        logger.info('Bearer token verified', { path: requestPath })
+      }
+      return claims
+    } catch (error: unknown) {
+      if (logVerificationDetails) {
+        logger.error('JWT token verification failed', {
+          error: error instanceof Error ? error.message : '',
+          code: (error as { code?: string }).code,
+        })
+      }
+      return null
+    }
   }
 
   /**
@@ -275,40 +407,10 @@ export function createExpressApp({
     const sessionCookie = req.cookies?.session
     const bearerToken = extractBearerToken(req.headers.authorization)
 
-    let sessionClaims: AuthClaims | null = null
-    if (sessionCookie) {
-      try {
-        sessionClaims = await authService.verifySessionCookie(sessionCookie)
-        if (logVerificationDetails) {
-          logger.info('Session cookie verified successfully')
-        }
-      } catch (error) {
-        if (logVerificationDetails) {
-          logger.error('Session cookie verification failed', {
-            error: error instanceof Error ? error.message : '',
-            code: (error as { code?: string }).code,
-            stack: error instanceof Error ? error.stack : undefined,
-          })
-        }
-      }
-    }
-
-    let bearerClaims: AuthClaims | null = null
-    if (bearerToken) {
-      try {
-        bearerClaims = await authService.verifyIdToken(bearerToken)
-        if (logVerificationDetails) {
-          logger.info('Bearer token verified', { path: req.path })
-        }
-      } catch (error) {
-        if (logVerificationDetails) {
-          logger.error('JWT token verification failed', {
-            error: error instanceof Error ? error.message : '',
-            code: (error as { code?: string }).code,
-          })
-        }
-      }
-    }
+    const [sessionClaims, bearerClaims] = await Promise.all([
+      verifySessionClaimsFromCookie(sessionCookie, logVerificationDetails),
+      verifyBearerClaimsFromHeader(bearerToken, logVerificationDetails, req.path ?? ''),
+    ])
 
     const mismatch =
       sessionClaims !== null &&
@@ -567,11 +669,15 @@ export function createExpressApp({
     authenticateUser,
     requireVerifiedEmail,
     async (req, res) => {
-      const providerParam = req.params.provider
-      const provider = typeof providerParam === 'string' ? providerParam : undefined
+      const provider = resolveManualSyncProvider(req, 'stream')
 
       if (!provider || !isSyncProviderId(provider)) {
-        logger.info(`Attempted to sync stream for an unrecognized provider: ${provider}`)
+        logger.info('Attempted to sync stream for an unrecognized provider', {
+          provider,
+          path: req.path,
+          originalUrl: req.originalUrl,
+          params: req.params,
+        })
         res.status(400).send('Unrecognized or unsupported provider.')
         return
       }
@@ -616,11 +722,15 @@ export function createExpressApp({
     authenticateUser,
     requireVerifiedEmail,
     async (req, res) => {
-      const providerParam = req.params.provider
-      const provider = typeof providerParam === 'string' ? providerParam : undefined
+      const provider = resolveManualSyncProvider(req, 'json')
 
       if (!provider || !isSyncProviderId(provider)) {
-        logger.info(`Attempted to sync an unrecognized provider: ${provider}`)
+        logger.info('Attempted to sync an unrecognized provider', {
+          provider,
+          path: req.path,
+          originalUrl: req.originalUrl,
+          params: req.params,
+        })
         res.status(400).send('Unrecognized or unsupported provider.')
         return
       }
@@ -646,13 +756,7 @@ export function createExpressApp({
       keyGenerator: (req) => `${getRateLimitKey(req)}:${req.path}`,
     }),
     async (req, res) => {
-      const providerParam = req.params.provider
-      const provider =
-        typeof providerParam === 'string'
-          ? providerParam
-          : Array.isArray(providerParam)
-            ? providerParam[0]
-            : undefined
+      const provider = normalizeExpressPathParam(req.params.provider)
 
       if (!provider || !isWidgetId(provider)) {
         res.status(404).json(
@@ -902,7 +1006,7 @@ export function createExpressApp({
           return
         }
 
-        const token = extractBearerToken(req.headers.authorization)!
+        const token = extractBearerToken(req.headers.authorization) as string
         const decodedToken = await authService.verifyIdToken(token)
 
         if (!isAllowedEmail(decodedToken.email)) {

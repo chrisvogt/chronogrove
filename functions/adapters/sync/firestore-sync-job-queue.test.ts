@@ -417,6 +417,27 @@ describe('FirestoreSyncJobQueue', () => {
     )
   })
 
+  it('stringifies non-message objects and uses Unknown error when stringify throws', async () => {
+    const queue = new FirestoreSyncJobQueue()
+    const summary = { durationMs: 1, result: 'FAILURE' as const }
+
+    mockDocSet.mockClear()
+    await queue.failJob('sync-chrisvogt-steam', { code: 'x', status: 418 }, summary)
+    expect(mockDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({ error: '{"code":"x","status":418}' }),
+      { merge: true },
+    )
+
+    const circular: Record<string, unknown> = { a: 1 }
+    circular.self = circular
+    mockDocSet.mockClear()
+    await queue.failJob('sync-chrisvogt-steam', circular, summary)
+    expect(mockDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({ error: 'Unknown error' }),
+      { merge: true },
+    )
+  })
+
   it('maps queue snapshots back to stored jobs', () => {
     const storedJob = {
       ...baseJob,

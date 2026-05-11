@@ -257,6 +257,50 @@ describe('fetchBook', () => {
     })
   })
 
+  it('treats 429 with Quota exceeded message as daily quota even without RESOURCE_EXHAUSTED status', async () => {
+    const bookInput = {
+      isbn: '9780143127550',
+      rating: '4',
+    }
+
+    const quotaStyle429 = {
+      response: {
+        statusCode: 429,
+        body: JSON.stringify({
+          error: {
+            code: 429,
+            message: 'Quota exceeded for metric',
+          },
+        }),
+      },
+    }
+
+    mockGot.mockRejectedValueOnce(quotaStyle429)
+
+    const result = await fetchBook(bookInput)
+
+    expect(mockGot).toHaveBeenCalledTimes(1)
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Daily quota exceeded for Google Books API. ISBN 9780143127550 will not be fetched.',
+      expect.objectContaining({ message: 'Quota exceeded for metric' }),
+    )
+    expect(result).toBeNull()
+  })
+
+  it('returns null from error body parser when response has no body', async () => {
+    const bookInput = {
+      isbn: '9780143127550',
+      rating: '4',
+    }
+
+    mockGot.mockRejectedValueOnce({ response: { statusCode: 500 } })
+
+    const result = await fetchBook(bookInput)
+
+    expect(mockLogger.error).toHaveBeenCalledWith('Error fetching data Google Books API.', expect.anything())
+    expect(result).toBeNull()
+  })
+
   it('should not retry on daily quota exceeded errors', async () => {
     const bookInput = {
       isbn: '9780143127550',
@@ -328,6 +372,27 @@ describe('fetchBook', () => {
       'Error fetching data Google Books API for ISBN 9780143127550 after 2 attempts.',
       rateLimitError
     )
+    expect(result).toBeNull()
+  })
+
+  it('treats invalid JSON in a Google Books error body as absent quota metadata', async () => {
+    const bookInput = {
+      isbn: '9780143127550',
+      rating: '4',
+    }
+
+    const badJsonError = {
+      response: {
+        statusCode: 500,
+        body: '{not-json',
+      },
+    }
+
+    mockGot.mockRejectedValueOnce(badJsonError)
+
+    const result = await fetchBook(bookInput)
+
+    expect(mockLogger.error).toHaveBeenCalledWith('Error fetching data Google Books API.', badJsonError)
     expect(result).toBeNull()
   })
 

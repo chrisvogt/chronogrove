@@ -55,19 +55,31 @@
 }
 
 .progressBarTrack {
+  display: block;
   width: 100%;
   height: 6px;
+  appearance: none;
+  border: none;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   margin-bottom: 1.25rem;
   overflow: hidden;
 }
 
-.progressBarFill {
-  height: 100%;
+.progressBarTrack::-webkit-progress-bar {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.progressBarTrack::-webkit-progress-value {
   border-radius: 999px;
   background: linear-gradient(90deg, var(--success), var(--accent));
   transition: width 0.35s ease;
+}
+
+.progressBarTrack::-moz-progress-bar {
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--success), var(--accent));
 }
 
 .saveError {
@@ -81,6 +93,7 @@
 }
 
 .oauthFlash {
+  display: block;
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
   background: rgba(52, 211, 153, 0.1);
@@ -706,7 +719,7 @@
     opacity: 0.9;
   }
 
-  .progressBarFill {
+  .progressBarTrack::-webkit-progress-value {
     transition: none;
   }
 }

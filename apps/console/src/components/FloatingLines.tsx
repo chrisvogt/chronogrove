@@ -239,7 +239,7 @@ export interface WavePosition {
   rotate?: number
 }
 
-export interface FloatingLinesProps {
+export type FloatingLinesProps = Readonly<{
   linesGradient?: string[]
   enabledWaves?: WaveType[]
   lineCount?: number | number[]
@@ -255,7 +255,7 @@ export interface FloatingLinesProps {
   parallax?: boolean
   parallaxStrength?: number
   mixBlendMode?: string
-}
+}>
 
 export default function FloatingLines({
   linesGradient,
