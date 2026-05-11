@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.8] - 2026-05-11
+
+### Changed
+
+- **Spotify widget sync** — **`api/spotify/get-top-tracks`** passes **`limit: 24`** (was **12**) to **`GET me/top/tracks`** with **`time_range: short_term`**, so **`collections.topTracks`** can persist up to 24 tracks per successful sync (Spotify allows up to **50** per request). Unit test expectations and **`top-tracks.mock.json`** pagination metadata updated.
+
 ## [0.30.7] - 2026-05-10
 
 ### Fixed
@@ -820,6 +826,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _This changelog was started with v0.8.0._
 
+[0.30.8]: https://github.com/chrisvogt/chronogrove/compare/v0.30.7...v0.30.8
 [0.30.3]: https://github.com/chrisvogt/chronogrove/compare/v0.30.2...v0.30.3
 [0.30.2]: https://github.com/chrisvogt/chronogrove/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/chrisvogt/chronogrove/compare/v0.30.0...v0.30.1

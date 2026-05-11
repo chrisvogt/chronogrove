@@ -11,7 +11,7 @@ const getTopTracks = async accessToken => {
     },
     searchParams: {
       time_range: 'short_term',
-      limit: 12
+      limit: 24
     }
   })
   const { items } = body

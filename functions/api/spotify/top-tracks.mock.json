@@ -2662,9 +2662,9 @@
     }
   ],
   "total": 50,
-  "limit": 12,
+  "limit": 24,
   "offset": 0,
-  "href": "https://api.spotify.com/v1/me/top/tracks?limit=12&offset=0",
+  "href": "https://api.spotify.com/v1/me/top/tracks?limit=24&offset=0",
   "previous": null,
-  "next": "https://api.spotify.com/v1/me/top/tracks?limit=12&offset=12"
+  "next": "https://api.spotify.com/v1/me/top/tracks?limit=24&offset=24"
 }

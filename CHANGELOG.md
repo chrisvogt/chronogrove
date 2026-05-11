@@ -15,6 +15,8 @@ Package-specific changes:
 
 ### Changed
 
+- **Workspace** — **Functions 0.30.8**: Spotify **`me/top/tracks`** sync requests **`limit: 24`** instead of **12**, so the widget can surface more short-term top tracks after the next sync. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+
 - **Workspace** — **Functions 0.30.7** and **Console 0.6.27**: Steam AI summary prompt slimmed so default Anthropic **`max_tokens`** no longer truncates JSON in production; console **`SettingsProfileIdentity`** clear-username test hardened for CI; functions release also includes CORS allowlist tweak for **`chrisvogt.me`**, emulator **`prestart` → `build`**, and AI summary **`jsonrepair`** / logging adjustments documented in **[functions/CHANGELOG.md](functions/CHANGELOG.md)**. See [functions/CHANGELOG.md](functions/CHANGELOG.md) and [apps/console/CHANGELOG.md](apps/console/CHANGELOG.md).
 
 - **Workspace** — **Console 0.6.25**: **Next.js** pinned to exact **`16.2.4`** so Firebase App Hosting’s **`@apphosting/adapter-nextjs`** CVE version check receives a valid semver (ranges like **`^16.2.4`** were mis-rejected and blocked deploy). Documented in **[docs/APP_HOSTING.md](docs/APP_HOSTING.md)** and **[apps/console/README.md](apps/console/README.md)**. See [apps/console/CHANGELOG.md](apps/console/CHANGELOG.md).
