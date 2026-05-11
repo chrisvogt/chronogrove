@@ -11,7 +11,7 @@ import {
   DEFAULT_THEME,
 } from '@/theme/chronogroveTheme'
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <ThemeProvider
       attribute="data-theme"

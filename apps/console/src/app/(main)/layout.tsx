@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/auth/AuthContext'
 import { mustVerifyEmailBeforeConsole } from '@/lib/emailVerificationGate'
@@ -25,7 +25,7 @@ const sectionToPath: Record<SectionId, string> = {
   auth: '/auth/',
 }
 
-export default function MainLayout({ children }: { children: React.ReactNode }) {
+export default function MainLayout({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname() ?? '/schema/'
   const router = useRouter()
   const { user, loading } = useAuth()

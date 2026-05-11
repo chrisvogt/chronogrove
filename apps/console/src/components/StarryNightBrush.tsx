@@ -13,24 +13,27 @@ interface Stroke {
   color: string
 }
 
+type BezierCurveSpec = Readonly<{
+  mx: number
+  my: number
+  c1x: number
+  c1y: number
+  c2x: number
+  c2y: number
+  ex: number
+  ey: number
+  width: number
+  color: string
+  segments: number
+}>
+
 function buildSwirlStrokes(w: number, h: number): Stroke[] {
   const nx = (x: number) => x * w
   const ny = (y: number) => y * h
   const strokes: Stroke[] = []
 
-  const addBezier = (
-    mx: number,
-    my: number,
-    c1x: number,
-    c1y: number,
-    c2x: number,
-    c2y: number,
-    ex: number,
-    ey: number,
-    width: number,
-    color: string,
-    segments: number
-  ) => {
+  const addBezier = (spec: BezierCurveSpec) => {
+    const { mx, my, c1x, c1y, c2x, c2y, ex, ey, width, color, segments } = spec
     const pts: Array<{ x: number; y: number }> = []
     for (let i = 0; i <= segments; i++) {
       const t = i / segments
@@ -51,22 +54,142 @@ function buildSwirlStrokes(w: number, h: number): Stroke[] {
   }
 
   // Back: deep indigo washes (chunky segments read like dry brush)
-  addBezier(0.85, 0.92, 0.98, 0.55, 0.35, 0.05, 0.05, 0.35, 55, 'rgba(25, 35, 85, 0.34)', 28)
-  addBezier(0.1, 0.15, 0.35, 0.0, 0.55, 0.25, 0.72, 0.42, 48, 'rgba(30, 45, 95, 0.30)', 24)
+  addBezier({
+    mx: 0.85,
+    my: 0.92,
+    c1x: 0.98,
+    c1y: 0.55,
+    c2x: 0.35,
+    c2y: 0.05,
+    ex: 0.05,
+    ey: 0.35,
+    width: 55,
+    color: 'rgba(25, 35, 85, 0.34)',
+    segments: 28,
+  })
+  addBezier({
+    mx: 0.1,
+    my: 0.15,
+    c1x: 0.35,
+    c1y: 0.0,
+    c2x: 0.55,
+    c2y: 0.25,
+    ex: 0.72,
+    ey: 0.42,
+    width: 48,
+    color: 'rgba(30, 45, 95, 0.30)',
+    segments: 24,
+  })
 
   // Mid: cobalt spirals (Van Gogh sky rhythm)
-  addBezier(0.72, 0.18, 0.95, 0.32, 0.88, 0.62, 0.42, 0.78, 38, 'rgba(70, 110, 195, 0.26)', 32)
-  addBezier(0.38, 0.12, 0.55, 0.42, 0.2, 0.65, 0.08, 0.55, 32, 'rgba(90, 130, 210, 0.22)', 28)
-  addBezier(0.55, 0.25, 0.75, 0.1, 0.92, 0.35, 0.68, 0.48, 28, 'rgba(120, 155, 235, 0.18)', 26)
-  addBezier(0.5, 0.55, 0.72, 0.45, 0.65, 0.72, 0.35, 0.88, 36, 'rgba(75, 115, 200, 0.20)', 30)
-  addBezier(0.22, 0.72, 0.08, 0.55, 0.22, 0.38, 0.42, 0.28, 30, 'rgba(85, 125, 215, 0.17)', 24)
+  addBezier({
+    mx: 0.72,
+    my: 0.18,
+    c1x: 0.95,
+    c1y: 0.32,
+    c2x: 0.88,
+    c2y: 0.62,
+    ex: 0.42,
+    ey: 0.78,
+    width: 38,
+    color: 'rgba(70, 110, 195, 0.26)',
+    segments: 32,
+  })
+  addBezier({
+    mx: 0.38,
+    my: 0.12,
+    c1x: 0.55,
+    c1y: 0.42,
+    c2x: 0.2,
+    c2y: 0.65,
+    ex: 0.08,
+    ey: 0.55,
+    width: 32,
+    color: 'rgba(90, 130, 210, 0.22)',
+    segments: 28,
+  })
+  addBezier({
+    mx: 0.55,
+    my: 0.25,
+    c1x: 0.75,
+    c1y: 0.1,
+    c2x: 0.92,
+    c2y: 0.35,
+    ex: 0.68,
+    ey: 0.48,
+    width: 28,
+    color: 'rgba(120, 155, 235, 0.18)',
+    segments: 26,
+  })
+  addBezier({
+    mx: 0.5,
+    my: 0.55,
+    c1x: 0.72,
+    c1y: 0.45,
+    c2x: 0.65,
+    c2y: 0.72,
+    ex: 0.35,
+    ey: 0.88,
+    width: 36,
+    color: 'rgba(75, 115, 200, 0.20)',
+    segments: 30,
+  })
+  addBezier({
+    mx: 0.22,
+    my: 0.72,
+    c1x: 0.08,
+    c1y: 0.55,
+    c2x: 0.22,
+    c2y: 0.38,
+    ex: 0.42,
+    ey: 0.28,
+    width: 30,
+    color: 'rgba(85, 125, 215, 0.17)',
+    segments: 24,
+  })
 
   // Light cerulean highlights
-  addBezier(0.62, 0.38, 0.78, 0.28, 0.82, 0.52, 0.58, 0.62, 22, 'rgba(160, 190, 255, 0.14)', 22)
-  addBezier(0.48, 0.42, 0.58, 0.35, 0.52, 0.58, 0.4, 0.72, 18, 'rgba(180, 205, 255, 0.10)', 20)
+  addBezier({
+    mx: 0.62,
+    my: 0.38,
+    c1x: 0.78,
+    c1y: 0.28,
+    c2x: 0.82,
+    c2y: 0.52,
+    ex: 0.58,
+    ey: 0.62,
+    width: 22,
+    color: 'rgba(160, 190, 255, 0.14)',
+    segments: 22,
+  })
+  addBezier({
+    mx: 0.48,
+    my: 0.42,
+    c1x: 0.58,
+    c1y: 0.35,
+    c2x: 0.52,
+    c2y: 0.58,
+    ex: 0.4,
+    ey: 0.72,
+    width: 18,
+    color: 'rgba(180, 205, 255, 0.10)',
+    segments: 20,
+  })
 
   // Warm glow near “moon” / horizon (subtle)
-  addBezier(0.18, 0.88, 0.12, 0.7, 0.28, 0.58, 0.35, 0.72, 40, 'rgba(232, 188, 56, 0.06)', 18)
+  addBezier({
+    mx: 0.18,
+    my: 0.88,
+    c1x: 0.12,
+    c1y: 0.7,
+    c2x: 0.28,
+    c2y: 0.58,
+    ex: 0.35,
+    ey: 0.72,
+    width: 40,
+    color: 'rgba(232, 188, 56, 0.06)',
+    segments: 18,
+  })
 
   return strokes
 }
@@ -231,7 +354,7 @@ function drawVillageBand(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fill()
 }
 
-export function StarryNightBrush({ className }: { className?: string }) {
+export function StarryNightBrush({ className }: Readonly<{ className?: string }>) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const strokesRef = useRef<Stroke[] | null>(null)
   const cypressRef = useRef<Stroke[] | null>(null)
@@ -319,16 +442,16 @@ export function StarryNightBrush({ className }: { className?: string }) {
   }, [])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={className}
-      aria-hidden
-      style={{
-        display: 'block',
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-      }}
-    />
+    <div aria-hidden className={className} style={{ width: '100%', height: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+        }}
+      />
+    </div>
   )
 }

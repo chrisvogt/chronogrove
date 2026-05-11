@@ -21,11 +21,11 @@ export function AddProvidersFlyout({
   open,
   onClose,
   onSaved,
-}: {
+}: Readonly<{
   open: boolean
   onClose: () => void
   onSaved?: () => void
-}) {
+}>) {
   const { user, apiSessionReady } = useAuth()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -67,7 +67,7 @@ export function AddProvidersFlyout({
       setProgressReady(false)
       return
     }
-    void load()
+    load().catch(() => {})
   }, [open, load])
 
   useEffect(() => {
@@ -106,9 +106,10 @@ export function AddProvidersFlyout({
       }
       await load()
     } catch (e) {
-      const label =
-        providerId === 'discogs' ? 'Discogs' : providerId === 'github' ? 'GitHub' : 'Flickr'
-      setError(e instanceof Error ? e.message : `Could not cancel ${label} link.`)
+      let providerLabel = 'Flickr'
+      if (providerId === 'discogs') providerLabel = 'Discogs'
+      else if (providerId === 'github') providerLabel = 'GitHub'
+      setError(e instanceof Error ? e.message : `Could not cancel ${providerLabel} link.`)
     }
   }
 

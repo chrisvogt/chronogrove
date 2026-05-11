@@ -420,7 +420,7 @@ function buildVillage(): Group {
 
 /* ── Component ───────────────────────────────────────────────────────── */
 
-export default function StarryNightScene({ className }: { className?: string }) {
+export default function StarryNightScene({ className }: Readonly<{ className?: string }>) {
   const mountRef = useRef<HTMLDivElement>(null)
   const mouseRef = useRef({ x: 0, y: 0 })
   const smoothRef = useRef({ x: 0, y: 0 })

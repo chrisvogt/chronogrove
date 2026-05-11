@@ -211,9 +211,12 @@ export function Layout({ children, user, activeSection, onSectionChange }: Layou
         </header>
         <div className={styles.content}>{children}</div>
       </div>
-      <div
+      <button
+        type="button"
         className={styles.overlay}
-        aria-hidden={!sidebarOpen}
+        data-open={sidebarOpen ? 'true' : undefined}
+        aria-label="Close navigation menu"
+        tabIndex={sidebarOpen ? 0 : -1}
         onClick={() => setSidebarOpen(false)}
       />
     </div>

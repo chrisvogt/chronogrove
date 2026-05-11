@@ -10,10 +10,10 @@ import styles from './JsonCodeBlock.module.css'
 
 const jsxRuntime = { Fragment, jsx, jsxs }
 
-export interface JsonCodeBlockProps {
+export type JsonCodeBlockProps = Readonly<{
   code: string
   className?: string
-}
+}>
 
 function formatJsonIfPossible(source: string): string {
   try {

@@ -9,31 +9,35 @@ export function ChronogroveThemeOptionList({
   disabled,
   labelledBy,
   onSelect,
-}: {
+}: Readonly<{
   value: ChronogroveThemeId
   disabled?: boolean
   labelledBy: string
   onSelect: (id: ChronogroveThemeId) => void
-}) {
+}>) {
   return (
     <div className={styles.options} role="radiogroup" aria-labelledby={labelledBy}>
       {CHRONOGROVE_THEMES.map((id) => {
         const meta = CHRONOGROVE_THEME_INFO[id]
         const selected = value === id
         return (
-          <button
+          <label
             key={id}
-            type="button"
-            role="radio"
-            aria-checked={selected}
             className={`${styles.option} ${selected ? styles.optionSelected : ''}`}
-            onClick={() => onSelect(id)}
-            disabled={disabled}
           >
+            <input
+              type="radio"
+              name="chronogrove-theme-option"
+              value={id}
+              className={styles.radioInput}
+              checked={selected}
+              onChange={() => onSelect(id)}
+              disabled={disabled}
+            />
             <span className={styles.optionTitle}>{meta.label}</span>
             <span className={styles.optionBlurb}>{meta.blurb}</span>
             <span className={styles.swatchStrip} data-theme-preview={id} aria-hidden />
-          </button>
+          </label>
         )
       })}
     </div>

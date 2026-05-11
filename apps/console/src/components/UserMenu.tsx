@@ -16,7 +16,7 @@ function userInitial(user: User): string {
   return fromEmail ? fromEmail.toUpperCase() : '?'
 }
 
-export function UserMenu({ user }: { user: User }) {
+export function UserMenu({ user }: Readonly<{ user: User }>) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const { logout } = useAuth()
@@ -83,7 +83,7 @@ export function UserMenu({ user }: { user: User }) {
           <p className={styles.menuSectionLabel} id="user-menu-theme-label">
             Theme
           </p>
-          <div role="group" aria-labelledby="user-menu-theme-label">
+          <fieldset className={styles.menuThemeFieldset} aria-labelledby="user-menu-theme-label">
             {CHRONOGROVE_THEMES.map((id) => (
             <button
               key={id}
@@ -92,7 +92,7 @@ export function UserMenu({ user }: { user: User }) {
               role="menuitemradio"
               aria-checked={activeTheme === id}
               onClick={() => {
-                void persist(id)
+                persist(id).catch(() => {})
               }}
             >
               <span className={styles.menuItemText}>{CHRONOGROVE_THEME_INFO[id].menuLabel}</span>
@@ -103,7 +103,7 @@ export function UserMenu({ user }: { user: User }) {
               ) : null}
             </button>
             ))}
-          </div>
+          </fieldset>
           <div className={styles.menuDivider} />
           <Link
             href="/user-settings/"
@@ -119,7 +119,7 @@ export function UserMenu({ user }: { user: User }) {
             role="menuitem"
             onClick={() => {
               setOpen(false)
-              void logout()
+              logout().catch(() => {})
             }}
           >
             Sign out

@@ -41,9 +41,9 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-interface AuthProviderProps {
+type AuthProviderProps = Readonly<{
   children: ReactNode
-}
+}>
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const pathname = usePathname()
@@ -165,14 +165,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await establishApiSessionCoalesced(cred.user)
     } catch (e) {
       const err = e as { code?: string; message?: string }
-      const msg =
-        err.code === 'auth/email-already-in-use'
-          ? 'An account with this email already exists.'
-          : err.code === 'auth/weak-password'
-            ? 'Password should be at least 6 characters.'
-            : err.code === 'auth/invalid-email'
-              ? 'Invalid email address.'
-              : err.message ?? 'Sign-up failed'
+      let msg: string
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          msg = 'An account with this email already exists.'
+          break
+        case 'auth/weak-password':
+          msg = 'Password should be at least 6 characters.'
+          break
+        case 'auth/invalid-email':
+          msg = 'Invalid email address.'
+          break
+        default:
+          msg = err.message ?? 'Sign-up failed'
+      }
       setError(msg)
       throw e
     }
@@ -185,14 +191,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await signInWithEmailAndPassword(auth, email, password)
     } catch (e) {
       const err = e as { code?: string; message?: string }
-      const msg =
-        err.code === 'auth/user-not-found'
-          ? 'No account with this email.'
-          : err.code === 'auth/wrong-password'
-            ? 'Incorrect password.'
-            : err.code === 'auth/invalid-email'
-              ? 'Invalid email address.'
-              : err.message ?? 'Sign-in failed'
+      let msg: string
+      switch (err.code) {
+        case 'auth/user-not-found':
+          msg = 'No account with this email.'
+          break
+        case 'auth/wrong-password':
+          msg = 'Incorrect password.'
+          break
+        case 'auth/invalid-email':
+          msg = 'Invalid email address.'
+          break
+        default:
+          msg = err.message ?? 'Sign-in failed'
+      }
       setError(msg)
       throw e
     }

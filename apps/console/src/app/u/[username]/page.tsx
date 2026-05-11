@@ -11,10 +11,10 @@ import {
 } from '@/lib/widget-status'
 import styles from './PublicTenantStatus.module.css'
 
-type PageProps = {
+type PageProps = Readonly<{
   params: Promise<{ username: string }>
   searchParams?: Promise<Record<string, string | string[] | undefined>>
-}
+}>
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { username } = await params
