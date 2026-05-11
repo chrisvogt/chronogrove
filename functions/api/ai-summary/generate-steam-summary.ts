@@ -20,13 +20,9 @@ const generateSteamSummary = async (steamData: SteamSummaryInput): Promise<strin
   const prompt = `
 Hi — please analyze the following Steam gaming data and return a natural-sounding summary in **valid JSON**.
 
-Use this structure:
+Use exactly this structure (one key only — do not echo game lists back into the JSON; the page already shows them):
 {
-  "response": "<2-3 paragraphs in limited HTML with third-person summary of Chris Vogt's Steam activity. Mention recent games played, genre or playstyle trends, and any standout titles. Use natural and informative language.>",
-  "debug": {
-    "recentlyPlayedGames": [...], // title, playTime2Weeks, playTimeForever
-    "topPlayedGames": [...]       // title, playTimeForever
-  }
+  "response": "<2-3 paragraphs in limited HTML with third-person summary of Chris Vogt's Steam activity. Mention recent games played, genre or playstyle trends, and any standout titles. Use natural and informative language.>"
 }
 
 Instructions:
