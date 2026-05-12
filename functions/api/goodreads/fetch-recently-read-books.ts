@@ -29,6 +29,7 @@ import type {
 
 import { getXmlTextOrUndefined } from '../../utils/goodreads-xml.js'
 import { sortGoodreadsRecentlyReadBooksByReadAtDesc } from '../../utils/sort-goodreads-recently-read-books.js'
+import { simplifyTitleForGoogleBooksQuery } from '../../utils/simplify-title-for-google-books-query.js'
 
 const toBookMediaDestinationPath = id => `books/${id}-thumbnail.jpg`
 
@@ -56,9 +57,11 @@ function parseGoogleBooksApiErrorBody(error: unknown): unknown | null {
 async function fetchGoogleBookByTitleFallback(
   book: GoodreadsReviewListBookSource,
 ): Promise<GoogleBooksFetchByIsbnResult | null> {
+  const titleForQuery =
+    simplifyTitleForGoogleBooksQuery(book.title ?? '') || (book.title ?? '').trim()
   const searchQuery = book.authorName
-    ? `intitle:${book.title} inauthor:${book.authorName}`
-    : `intitle:${book.title}`
+    ? `intitle:${titleForQuery} inauthor:${book.authorName}`
+    : `intitle:${titleForQuery}`
   const maxRetries = 3
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
