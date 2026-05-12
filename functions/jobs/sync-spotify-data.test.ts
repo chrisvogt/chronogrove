@@ -44,6 +44,11 @@ vi.mock('../transformers/track-to-collection-item.js', () => ({
   default: vi.fn((track) => ({ id: track.id, displayName: track.name })),
 }))
 
+vi.mock('../api/ai-summary/generate-spotify-summary.js', () => ({
+  default: vi.fn().mockResolvedValue('<p>Mock Spotify AI summary.</p>'),
+}))
+
+import generateSpotifySummary from '../api/ai-summary/generate-spotify-summary.js'
 import getSpotifyAccessToken from '../api/spotify/get-access-token.js'
 import getSpotifyPlaylists from '../api/spotify/get-playlists.js'
 import getSpotifyTopTracks from '../api/spotify/get-top-tracks.js'
@@ -117,12 +122,61 @@ describe('syncSpotifyData', () => {
     expect(documentStore.setDocument).toHaveBeenCalledWith(
       'users/chrisvogt/spotify/widget-content',
       expect.objectContaining({
+        aiSummary: '<p>Mock Spotify AI summary.</p>',
         meta: {
           synced: expect.any(String),
           totalUploadedMediaCount: 1,
         },
       })
     )
+    expect(documentStore.setDocument).toHaveBeenCalledWith(
+      'users/chrisvogt/spotify/last-response_ai-summary',
+      expect.objectContaining({
+        generatedAt: expect.any(String),
+        summary: '<p>Mock Spotify AI summary.</p>',
+      })
+    )
+  })
+
+  it('continues when AI summary generation fails', async () => {
+    vi.mocked(generateSpotifySummary).mockRejectedValueOnce(new Error('AI unavailable'))
+    vi.mocked(getSpotifyAccessToken).mockResolvedValue({ accessToken: 'spotify-token' })
+    vi.mocked(getSpotifyUserProfile).mockResolvedValue({
+      display_name: 'Test User',
+      external_urls: { spotify: 'https://open.spotify.com/user/test' },
+      followers: { total: 100 },
+      id: 'user123',
+      images: [{ url: 'https://example.com/avatar.jpg' }],
+    })
+    vi.mocked(getSpotifyTopTracks).mockResolvedValue([{ id: 'track1', name: 'Track 1' }])
+    vi.mocked(getSpotifyPlaylists).mockResolvedValue({
+      total: 1,
+      items: [
+        {
+          id: 'playlist1',
+          name: 'Playlist 1',
+          images: [{ url: 'https://mosaic.scdn.co/300/hash123', height: 300, width: 300 }],
+        },
+      ],
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    const result = await syncSpotifyData(documentStore)
+
+    expect(result.result).toBe('SUCCESS')
+    expect(logger.error).toHaveBeenCalledWith(
+      'Failed to generate Spotify AI summary.',
+      expect.any(Error),
+    )
+    const widgetPayload = vi.mocked(documentStore.setDocument).mock.calls.find(
+      (c) => c[0] === 'users/chrisvogt/spotify/widget-content',
+    )?.[1] as { aiSummary?: string }
+    expect(widgetPayload.aiSummary).toBeUndefined()
+    expect(
+      vi.mocked(documentStore.setDocument).mock.calls.some(
+        (c) => c[0] === 'users/chrisvogt/spotify/last-response_ai-summary',
+      ),
+    ).toBe(false)
   })
 
   it('should not re-download playlist covers already in storage', async () => {
@@ -303,6 +357,7 @@ describe('syncSpotifyData', () => {
       'spotify.top_tracks',
       'spotify.playlists',
       'spotify.covers',
+      'spotify.ai',
       'spotify.persist',
     ])
   })

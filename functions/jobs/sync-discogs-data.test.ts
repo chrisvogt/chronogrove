@@ -36,7 +36,22 @@ vi.mock('../services/media/media-service.js', () => ({
 }))
 
 vi.mock('../transformers/transform-discogs-release.js', () => ({
-  default: vi.fn((release) => ({ ...release, transformed: true })),
+  default: vi.fn((release) => {
+    const bi = release.basic_information
+    return {
+      basicInformation: {
+        artists: Array.isArray(bi?.artists) ? bi.artists : [{ name: 'Artist' }],
+        formats: Array.isArray(bi?.formats) ? bi.formats : [{ name: 'Vinyl' }],
+        genres: Array.isArray(bi?.genres) ? bi.genres : ['Rock'],
+        styles: Array.isArray(bi?.styles) ? bi.styles : [],
+        title: typeof bi?.title === 'string' ? bi.title : 'Test',
+        year: typeof bi?.year === 'number' ? bi.year : 2020,
+      },
+      dateAdded: typeof release.date_added === 'string' ? release.date_added : undefined,
+      id: release.id,
+      transformed: true,
+    }
+  }),
 }))
 
 vi.mock('../transformers/to-discogs-destination-path.js', () => ({
@@ -47,6 +62,16 @@ vi.mock('../services/discogs-integration-credentials.js', () => ({
   loadDiscogsAuthForUser: vi.fn().mockResolvedValue(null),
 }))
 
+vi.mock('../api/ai-summary/generate-discogs-summary.js', async (importOriginal) => {
+  const mod =
+    await importOriginal<typeof import('../api/ai-summary/generate-discogs-summary.js')>()
+  return {
+    ...mod,
+    default: vi.fn().mockResolvedValue('<p>Mock Discogs AI summary.</p>'),
+  }
+})
+
+import generateDiscogsSummary from '../api/ai-summary/generate-discogs-summary.js'
 import fetchDiscogsReleases from '../api/discogs/fetch-releases.js'
 import fetchReleasesBatch from '../api/discogs/fetch-releases-batch.js'
 import { listStoredMedia, storeRemoteMedia } from '../services/media/media-service.js'
@@ -117,11 +142,63 @@ describe('syncDiscogsData', () => {
       2,
       'users/chrisvogt/discogs/widget-content',
       expect.objectContaining({
+        aiSummary: '<p>Mock Discogs AI summary.</p>',
         meta: {
           synced: expect.any(String),
         },
       })
     )
+    expect(documentStore.setDocument).toHaveBeenNthCalledWith(
+      3,
+      'users/chrisvogt/discogs/last-response_ai-summary',
+      expect.objectContaining({
+        generatedAt: expect.any(String),
+        summary: '<p>Mock Discogs AI summary.</p>',
+      })
+    )
+  })
+
+  it('continues when AI summary generation fails', async () => {
+    vi.mocked(generateDiscogsSummary).mockRejectedValueOnce(new Error('AI unavailable'))
+    const mockDiscogsResponse = {
+      pagination: { items: 2, page: 1, pages: 1, per_page: 2, urls: {} },
+      releases: [
+        {
+          id: 1,
+          basic_information: {
+            thumb: 'https://example.com/thumb1.jpg',
+            cover_image: 'https://example.com/cover1.jpg',
+          },
+        },
+        {
+          id: 2,
+          basic_information: {
+            thumb: 'https://example.com/thumb2.jpg',
+            cover_image: 'https://example.com/cover2.jpg',
+          },
+        },
+      ],
+    }
+
+    vi.mocked(fetchDiscogsReleases).mockResolvedValue(mockDiscogsResponse)
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    const result = await syncDiscogsData(documentStore)
+
+    expect(result.result).toBe('SUCCESS')
+    expect(logger.error).toHaveBeenCalledWith(
+      'Failed to generate Discogs AI summary.',
+      expect.any(Error),
+    )
+    const widgetPayload = vi.mocked(documentStore.setDocument).mock.calls.find(
+      (c) => c[0] === 'users/chrisvogt/discogs/widget-content',
+    )?.[1] as { aiSummary?: string }
+    expect(widgetPayload.aiSummary).toBeUndefined()
+    expect(
+      vi.mocked(documentStore.setDocument).mock.calls.some(
+        (c) => c[0] === 'users/chrisvogt/discogs/last-response_ai-summary',
+      ),
+    ).toBe(false)
   })
 
   it('should handle API errors gracefully', async () => {
@@ -219,6 +296,7 @@ describe('syncDiscogsData', () => {
       'discogs.auth',
       'discogs.collection',
       'discogs.save_raw',
+      'discogs.ai',
       'discogs.save_widget',
       'discogs.artwork',
       'discogs.artwork',

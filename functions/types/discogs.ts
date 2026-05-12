@@ -89,3 +89,24 @@ export interface DiscogsMediaDownloadTask {
   id: string
   mediaURL: string
 }
+
+/** One release row compacted for the Discogs AI summary prompt. */
+export interface DiscogsSummaryCompactRelease {
+  artists: string[]
+  dateAdded?: string
+  formats: string[]
+  genres: string[]
+  styles: string[]
+  title?: string
+  year?: number
+}
+
+/** Payload for Discogs “AI collection summary”. */
+export interface DiscogsSummaryInput {
+  collectionTotal: number
+  decadeCounts: Record<string, number>
+  genreCounts: Record<string, number>
+  profileURL?: string
+  recentReleases: DiscogsSummaryCompactRelease[]
+  styleCounts: Record<string, number>
+}

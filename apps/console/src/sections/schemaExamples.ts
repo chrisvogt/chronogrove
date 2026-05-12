@@ -83,6 +83,8 @@ export const widgetResponseExamples = {
   discogs: {
     ok: true,
     payload: {
+      aiSummary:
+        'Mostly Japanese pressings from the 1970s–1980s; I still chase clean copies of fusion and city-pop titles.',
       meta: { synced: '2025-03-27T12:00:00.000Z' },
       metrics: { 'LPs Owned': 120 },
       profile: {
@@ -353,6 +355,8 @@ export const widgetResponseExamples = {
   spotify: {
     ok: true,
     payload: {
+      aiSummary:
+        'Lately I lean on curated mood playlists; my top tracks still orbit electronic and indie edges more than pop radio.',
       meta: {
         synced: '2025-03-27T12:00:00.000Z',
         totalUploadedMediaCount: 8,
