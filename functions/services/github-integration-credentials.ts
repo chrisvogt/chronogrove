@@ -63,11 +63,13 @@ async function tryRefreshGitHubAccessTokenForUser(
 ): Promise<GitHubOAuthCredentialPayload | null> {
   const { clientId, clientSecret } = getGitHubOAuthConfig()
   if (!clientId || !clientSecret) return null
+  const refreshToken = creds.refreshToken
+  if (!refreshToken) return null
   try {
     const refreshed = await refreshGitHubUserAccessToken({
       clientId,
       clientSecret,
-      refreshToken: creds.refreshToken,
+      refreshToken,
     })
     const next: GitHubOAuthCredentialPayload = {
       accessToken: refreshed.access_token,
