@@ -21,6 +21,7 @@ import { getLogger } from '../services/logger.js'
 import { toStoredDateTime } from '../utils/time.js'
 import { getXmlTextOrNull } from '../utils/goodreads-xml.js'
 import { sortGoodreadsRecentlyReadBooksByReadAtDesc } from '../utils/sort-goodreads-recently-read-books.js'
+import { simplifyTitleForGoogleBooksQuery } from '../utils/simplify-title-for-google-books-query.js'
 
 import type {
   GoogleBooksFetchByIsbnResult,
@@ -244,13 +245,13 @@ const processUpdatesWithMedia = async (
             // Try to get author name - different structure for review vs userstatus updates
             const authorName = book.author?.name || book.author?.displayName || book.author?.sortName
             
+            const titleForQuery =
+              simplifyTitleForGoogleBooksQuery(book.title) || book.title.trim()
             let searchQuery
             if (authorName) {
-              // Search by title and author
-              searchQuery = `intitle:${book.title} inauthor:${authorName}`
+              searchQuery = `intitle:${titleForQuery} inauthor:${authorName}`
             } else {
-              // Fallback: search by title only if no author name available
-              searchQuery = `intitle:${book.title}`
+              searchQuery = `intitle:${titleForQuery}`
             }
             
             try {

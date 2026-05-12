@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.10] - 2026-05-12
+
+### Fixed
+
+- **Goodreads + Google Books** — Title/author fallback volume search uses **`simplifyTitleForGoogleBooksQuery`** so Goodreads-style series/volume suffixes (e.g. `(The Book of Dust, #2)`) are stripped before building **`intitle:`** / **`inauthor:`** queries. The Books API often returns **400 Bad Request** for those characters in **`q`**, even when the web UI accepts the same title. Wired from **`fetch-recently-read-books`** and **`sync-goodreads-data`**.
+
+### Tests
+
+- **`simplify-title-for-google-books-query.test.ts`** — Parenthetical strip, **`#n`** suffix, length cap, whitespace.
+- **`fetch-recently-read-books.test.ts`** / **`sync-goodreads-data.test.ts`** — Assert **`intitle:`** uses simplified titles and **`||`** fallback when simplification yields an empty string (Codecov patch coverage).
+
 ## [0.30.9] - 2026-05-11
 
 ### Changed
@@ -837,6 +848,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _This changelog was started with v0.8.0._
 
+[0.30.10]: https://github.com/chrisvogt/chronogrove/compare/v0.30.9...v0.30.10
 [0.30.9]: https://github.com/chrisvogt/chronogrove/compare/v0.30.8...v0.30.9
 [0.30.8]: https://github.com/chrisvogt/chronogrove/compare/v0.30.7...v0.30.8
 [0.30.3]: https://github.com/chrisvogt/chronogrove/compare/v0.30.2...v0.30.3

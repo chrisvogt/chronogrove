@@ -15,6 +15,8 @@ Package-specific changes:
 
 ### Changed
 
+- **Workspace** — **Functions 0.30.10**: Goodreads Google Books title/author search **sanitizes** series parentheticals in **`intitle:`** queries to avoid **400** from the Books API. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+
 - **Workspace** — **Functions 0.30.9**: Goodreads and Steam widget AI summaries use **first-person** prompts; Steam adds structured **Cloud Logging** on JSON parse failure (**`head`** / **`tail`** / indices). See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
 
 - **Workspace** — **Functions 0.30.8**: Spotify **`me/top/tracks`** sync requests **`limit: 24`** instead of **12**, so the widget can surface more short-term top tracks after the next sync. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.

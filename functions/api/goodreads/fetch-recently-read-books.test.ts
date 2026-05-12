@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import fetchRecentlyReadBooks from './fetch-recently-read-books.js'
+import fetchRecentlyReadBooks, {
+  titleForGoogleBooksVolumeQuery,
+} from './fetch-recently-read-books.js'
 
 // Mock dependencies
 vi.mock('xml2js', () => ({
@@ -37,6 +39,24 @@ vi.mock('../../selectors/media-store.js', () => ({
 vi.mock('p-map', () => ({
   default: vi.fn()
 }))
+
+describe('titleForGoogleBooksVolumeQuery', () => {
+  it('returns empty when title is absent, null, undefined, or whitespace-only', () => {
+    expect(titleForGoogleBooksVolumeQuery({})).toBe('')
+    expect(titleForGoogleBooksVolumeQuery({ title: undefined })).toBe('')
+    expect(titleForGoogleBooksVolumeQuery({ title: null })).toBe('')
+    expect(titleForGoogleBooksVolumeQuery({ title: '   ' })).toBe('')
+  })
+
+  it('strips series parentheticals and applies fallback when simplify empties title', () => {
+    expect(
+      titleForGoogleBooksVolumeQuery({
+        title: 'The Secret Commonwealth (The Book of Dust, #2)',
+      }),
+    ).toBe('The Secret Commonwealth')
+    expect(titleForGoogleBooksVolumeQuery({ title: '(Paren Only)' })).toBe('(Paren Only)')
+  })
+})
 
 describe('fetchRecentlyReadBooks', () => {
   let mockParseString
@@ -849,6 +869,120 @@ describe('fetchRecentlyReadBooks', () => {
           country: 'US'
         }
       })
+    )
+    delete process.env.GOOGLE_BOOKS_API_KEY
+  })
+
+  it('uses simplified intitle when Goodreads title has trailing series parenthetical', async () => {
+    process.env.GOOGLE_BOOKS_API_KEY = 'test-google-books-api-key'
+    const longTitle = 'The Secret Commonwealth (The Book of Dust, #2)'
+    const mockGoodreadsResponse = `<GoodreadsResponse><reviews><review><read_at>2023-01-01</read_at><book><title>${longTitle}</title><isbn13>9780000000001</isbn13><authors><author><name>Philip Pullman</name></author></authors></book><rating>4</rating></review></reviews></GoodreadsResponse>`
+    const mockGoogleBookFromTitleSearch = {
+      items: [{
+        id: 'dust-book-id',
+        volumeInfo: {
+          title: 'The Secret Commonwealth',
+          authors: ['Philip Pullman'],
+          imageLinks: { thumbnail: 'http://example.com/t.jpg' },
+        },
+      }],
+    }
+
+    mockGot
+      .mockResolvedValueOnce({ body: mockGoodreadsResponse })
+      .mockResolvedValueOnce({ body: JSON.stringify(mockGoogleBookFromTitleSearch) })
+    mockParseString.mockImplementation((xml, callback) => {
+      callback(null, {
+        GoodreadsResponse: {
+          reviews: [{
+            review: [{
+              read_at: ['2023-01-01'],
+              book: [{
+                title: [longTitle],
+                authors: [{ author: [{ name: ['Philip Pullman'] }] }],
+                isbn13: ['9780000000001'],
+              }],
+              rating: ['4'],
+            }],
+          }],
+        },
+      })
+    })
+    mockPMap.mockImplementation(async (items, mapper, options) => {
+      if (options?.concurrency === 3) {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          results.push(await mapper(items[i], i))
+        }
+        return results
+      }
+      return []
+    })
+    mockFetchBookFromGoogle.mockResolvedValue(null)
+    mockListStoredMedia.mockResolvedValue([])
+
+    await fetchRecentlyReadBooks()
+
+    expect(mockGot).toHaveBeenCalledWith(
+      'https://www.googleapis.com/books/v1/volumes',
+      expect.objectContaining({
+        searchParams: {
+          q: 'intitle:The Secret Commonwealth inauthor:Philip Pullman',
+          key: 'test-google-books-api-key',
+          country: 'US',
+        },
+      }),
+    )
+    delete process.env.GOOGLE_BOOKS_API_KEY
+  })
+
+  it('uses raw Goodreads title when simplification strips to empty (parenthetical-only)', async () => {
+    process.env.GOOGLE_BOOKS_API_KEY = 'test-google-books-api-key'
+    const mockGoodreadsResponse =
+      '<GoodreadsResponse><reviews><review><read_at>2023-01-01</read_at><book><title>(Paren Only)</title><isbn13>9780000000002</isbn13></book><rating>4</rating></review></reviews></GoodreadsResponse>'
+    const mockGoogleBookFromTitleSearch = {
+      items: [{ id: 'p-id', volumeInfo: { title: 'X', imageLinks: { thumbnail: 'http://x.com/t.jpg' } } }],
+    }
+    mockGot
+      .mockResolvedValueOnce({ body: mockGoodreadsResponse })
+      .mockResolvedValueOnce({ body: JSON.stringify(mockGoogleBookFromTitleSearch) })
+    mockParseString.mockImplementation((xml, callback) => {
+      callback(null, {
+        GoodreadsResponse: {
+          reviews: [{
+            review: [{
+              read_at: ['2023-01-01'],
+              book: [{ title: ['(Paren Only)'], isbn13: ['9780000000002'] }],
+              rating: ['4'],
+            }],
+          }],
+        },
+      })
+    })
+    mockPMap.mockImplementation(async (items, mapper, options) => {
+      if (options?.concurrency === 3) {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          results.push(await mapper(items[i], i))
+        }
+        return results
+      }
+      return []
+    })
+    mockFetchBookFromGoogle.mockResolvedValue(null)
+    mockListStoredMedia.mockResolvedValue([])
+
+    await fetchRecentlyReadBooks()
+
+    expect(mockGot).toHaveBeenCalledWith(
+      'https://www.googleapis.com/books/v1/volumes',
+      expect.objectContaining({
+        searchParams: {
+          q: 'intitle:(Paren Only)',
+          key: 'test-google-books-api-key',
+          country: 'US',
+        },
+      }),
     )
     delete process.env.GOOGLE_BOOKS_API_KEY
   })

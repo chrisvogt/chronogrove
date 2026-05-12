@@ -902,6 +902,133 @@ describe('syncGoodreadsData', () => {
       })
     })
 
+    it('should search with simplified title when book title has series parenthetical', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: {
+              isbn13: '9780143127550',
+              title: 'The Secret Commonwealth (The Book of Dust, #2)',
+              author: { name: 'Philip Pullman' }
+            }
+          }
+        ],
+        jsonResponse: { user: 'data' }
+      }
+
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' }
+      }
+
+      const mockGoogleSearchResponse = {
+        items: [{
+          id: 'search-result-id',
+          volumeInfo: {
+            title: 'The Secret Commonwealth',
+            authors: ['Philip Pullman'],
+            imageLinks: {
+              thumbnail: 'http://books.google.com/thumb.jpg'
+            }
+          }
+        }]
+      }
+
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockResolvedValue(null)
+      mockGot.mockResolvedValue({ body: JSON.stringify(mockGoogleSearchResponse) })
+      mockListStoredMedia.mockResolvedValue([])
+
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          const result = await mapper(items[i], i)
+          results.push(result)
+        }
+        return results
+      })
+
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+
+      expect(result.result).toBe('SUCCESS')
+      expect(mockGot).toHaveBeenCalledWith('https://www.googleapis.com/books/v1/volumes', {
+        searchParams: {
+          q: 'intitle:The Secret Commonwealth inauthor:Philip Pullman',
+          key: 'test-google-books-api-key',
+          country: 'US'
+        }
+      })
+    })
+
+    it('should use raw title when simplification is empty for update title search', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: {
+              isbn13: '9780143127550',
+              title: '(Paren Only)',
+              author: { name: 'Some Author' }
+            }
+          }
+        ],
+        jsonResponse: { user: 'data' }
+      }
+
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' }
+      }
+
+      const mockGoogleSearchResponse = {
+        items: [{
+          id: 'search-result-id',
+          volumeInfo: {
+            title: 'X',
+            imageLinks: {
+              thumbnail: 'http://books.google.com/thumb.jpg'
+            }
+          }
+        }]
+      }
+
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockResolvedValue(null)
+      mockGot.mockResolvedValue({ body: JSON.stringify(mockGoogleSearchResponse) })
+      mockListStoredMedia.mockResolvedValue([])
+
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          const result = await mapper(items[i], i)
+          results.push(result)
+        }
+        return results
+      })
+
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+
+      expect(result.result).toBe('SUCCESS')
+      expect(mockGot).toHaveBeenCalledWith('https://www.googleapis.com/books/v1/volumes', {
+        searchParams: {
+          q: 'intitle:(Paren Only) inauthor:Some Author',
+          key: 'test-google-books-api-key',
+          country: 'US'
+        }
+      })
+    })
+
     it('should search by title only when author is not available', async () => {
       const mockUserData = {
         profile: { displayName: 'Test User' },
