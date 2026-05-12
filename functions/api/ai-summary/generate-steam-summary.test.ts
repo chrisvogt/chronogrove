@@ -106,6 +106,7 @@ describe('generateSteamSummary', () => {
     const prompt = JSON.parse(init.body as string).messages[0].content as string
     expect(prompt).toMatch(/"playTime2Weeks"\s*:\s*0/)
     expect(prompt).toMatch(/"playTimeForever"\s*:\s*0/)
+    expect(prompt).toContain('First person')
   })
 
   it('should handle empty collections gracefully', async () => {
@@ -155,6 +156,61 @@ describe('generateSteamSummary', () => {
       'Error generating Steam AI summary:',
       expect.any(Error),
     )
+  })
+
+  it('logs structured assistant fields when JSON extraction fails', async () => {
+    const { logger } = await import('firebase-functions')
+    const assistantText = 'Plain prose with no parseable JSON object in sight.'
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => assistantJson(assistantText),
+    })
+
+    await expect(generateSteamSummary(mockSteamData)).rejects.toMatchObject({
+      cause: {
+        message: 'Model response was not valid JSON (no markdown block or raw JSON)',
+      },
+    })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Steam AI summary: assistant text could not be parsed as JSON (see head/tail/indices).',
+      expect.objectContaining({
+        charLength: assistantText.length,
+        trimmedLength: assistantText.trim().length,
+        firstCurlyIndex: -1,
+        lastCurlyIndex: -1,
+        hasMarkdownFence: false,
+        head: assistantText,
+      }),
+    )
+  })
+
+  it('includes tail in parse-failure log when assistant text is longer than head plus tail', async () => {
+    const { logger } = await import('firebase-functions')
+    const longNonsense = 'b'.repeat(4000)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => assistantJson(longNonsense),
+    })
+
+    await expect(generateSteamSummary(mockSteamData)).rejects.toMatchObject({
+      cause: {
+        message: 'Model response was not valid JSON (no markdown block or raw JSON)',
+      },
+    })
+
+    const parseFailCall = (logger.error as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call) =>
+        call[0] ===
+        'Steam AI summary: assistant text could not be parsed as JSON (see head/tail/indices).',
+    )
+    expect(parseFailCall).toBeDefined()
+    const payload = parseFailCall![1] as { head: string; tail: string; charLength: number }
+    expect(payload.charLength).toBe(4000)
+    expect(payload.head).toBe(longNonsense.slice(0, 2400))
+    expect(payload.tail).toBe(longNonsense.slice(-700))
   })
 
   it('should rethrow when fenced JSON is empty (unparseable object)', async () => {

@@ -5,6 +5,29 @@ import type { SteamSummaryInput } from '../../types/steam.js'
 import { requestAiSummaryCompletion } from '../../utils/ai-summary-messages.js'
 import extractJsonFromAiResponse from '../../utils/extract-json-from-ai-response.js'
 
+/** Logged when `extractJsonFromAiResponse` fails — head/tail help diagnose truncation vs bad escaping. */
+const STEAM_AI_ASSISTANT_LOG_HEAD = 2400
+const STEAM_AI_ASSISTANT_LOG_TAIL = 700
+
+const buildSteamAssistantTextLogFields = (assistantText: string) => {
+  const charLength = assistantText.length
+  const trimmedLength = assistantText.trim().length
+  const head = assistantText.slice(0, STEAM_AI_ASSISTANT_LOG_HEAD)
+  const tail =
+    charLength > STEAM_AI_ASSISTANT_LOG_HEAD + STEAM_AI_ASSISTANT_LOG_TAIL
+      ? assistantText.slice(-STEAM_AI_ASSISTANT_LOG_TAIL)
+      : undefined
+  return {
+    charLength,
+    trimmedLength,
+    firstCurlyIndex: assistantText.indexOf('{'),
+    lastCurlyIndex: assistantText.lastIndexOf('}'),
+    hasMarkdownFence: /```(?:json)?/i.test(assistantText),
+    head,
+    ...(tail !== undefined ? { tail } : {}),
+  }
+}
+
 function messageFromUnknownError(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -38,30 +61,23 @@ const generateSteamSummary = async (steamData: SteamSummaryInput): Promise<strin
   const { collections, profile, metrics } = steamData
 
   const prompt = `
-Hi — please analyze the following Steam gaming data and return a natural-sounding summary in **valid JSON**.
+You are writing a short, reader-facing “AI play summary” for Chris Vogt’s Steam activity on his personal homepage (chrisvogt.me). It appears next to live tables of recent and lifetime play, so visitors already see hours and titles there.
 
-Use exactly this structure (one key only — do not echo game lists back into the JSON; the page already shows them):
+Return **valid JSON only** (no markdown fences, no commentary) using exactly this shape (one top-level key — do not echo game lists into the JSON; the page already shows them):
 {
-  "response": "<2-3 paragraphs in limited HTML with third-person summary of Chris Vogt's Steam activity. Mention recent games played, genre or playstyle trends, and any standout titles. Use natural and informative language.>"
+  "response": "<string: two or three HTML paragraphs, see rules below>"
 }
 
-Instructions:
-- Respond in HTML with each paragraph in a <p> tag
-- No need to wrap the response in a <div> tag or any other container tags
-– Try to generate 2 paragraphs, at most 3
-- You are encouraged to use HTML tags to format the text
-- Especially basic formatting like <b>, <i>, <strong>, <em> and other simple formatting tags
-- Please do not use hyperlinks
-– Your response will be rendered next to a table showing recent and total hours for each game...
-- ...so no need to mention the exact hours in your response
-- All provided time values are in **minutes**
-- If time > 60 minutes, convert to **hours**, rounded to 1 decimal (e.g. 75 → "1.3 hours")
-- If time < 60 minutes, keep in **minutes**
-- Exclude games with 0 total playtime
-- Refer to the player as “Chris”
-- Identify genre or gameplay patterns if possible (e.g. sandbox, survival, RPGs, base-building)
-- Return only **valid JSON** — no markdown or extra text
-- The **response** value is one JSON string: escape every ASCII double-quote (U+0022) inside it as a backslash plus double-quote. Do not use raw line breaks inside that string—keep the HTML on one line, or use a JSON-escaped newline (backslash followed by n). The full output must parse as JSON with no errors.
+Rules for the "response" string (strict — the UI is built for this):
+- **JSON-safe HTML:** escape every ASCII double-quote (U+0022) inside the **response** string as a backslash plus double-quote; do not use raw line breaks inside that string (one line of HTML, or JSON-escaped newline as backslash followed by n). The full payload must be valid JSON.
+- **Two or three** <p>...</p> elements, back-to-back, with nothing before, between, or after them (no wrapper <div>, no line breaks outside the tags).
+- **First person** only: Chris Vogt’s own words — **I**, **my**, **me**. Do not describe him in third person (“Chris…”, “he…”). Avoid pivoting to address the visitor as **you**; stay in first-person perspective throughout.
+- **Voice** (match chrisvogt.me editorial tone): calm, specific, a little editorial — like a sharp one-column blurb, not marketing. Lead with concrete play habits or through-lines when you can; avoid generic gamer openers and hype. No meta lines about this being an AI summary or a stats table. No thank-you sign-offs. At most one metaphor or framing detail per paragraph.
+- Summarize **recent** leanings from recentlyPlayedGames and **long-run** tendencies from topPlayedGames — genre or playstyle patterns (sandbox, survival, RPGs, base-building, etc.) and any standout titles, without re-listing every game.
+- The tables show hours — **do not** quote exact hour totals in the prose unless it serves a sharp point.
+- All provided time values in the data are **minutes** (for your reasoning only; do not recite them unless needed).
+- Exclude games with 0 total playtime from your thinking.
+- Optional sparse styling inside paragraphs: <strong>, <em>, <b>, <i>; no hyperlinks, lists, headings, or images.
 
 Steam Profile: ${profile.displayName}  
 Total Games Owned: ${metrics.find(m => m.id === 'owned-games-count')?.value || 0}
@@ -85,6 +101,10 @@ Total Games Owned: ${metrics.find(m => m.id === 'owned-games-count')?.value || 0
     const responseText = await requestAiSummaryCompletion({ apiKey, userMessage: prompt })
     const parsed = extractJsonFromAiResponse<{ response?: unknown }>(responseText)
     if (!parsed) {
+      logger.error(
+        'Steam AI summary: assistant text could not be parsed as JSON (see head/tail/indices).',
+        buildSteamAssistantTextLogFields(responseText),
+      )
       throw new Error('Model response was not valid JSON (no markdown block or raw JSON)')
     }
     const raw = parsed.response

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.9] - 2026-05-11
+
+### Changed
+
+- **Goodreads / Steam AI summaries** — Prompts request **first person** (Chris Vogt’s voice, aligned with chrisvogt.me editorial tone) while keeping **two or three** `<p>` paragraphs and existing JSON / HTML constraints.
+- **Steam AI summary** — When **`extractJsonFromAiResponse`** cannot parse the assistant reply, **`logger.error`** logs structured fields (**`charLength`**, **`trimmedLength`**, **`firstCurlyIndex`** / **`lastCurlyIndex`**, **`hasMarkdownFence`**, **`head`**, optional **`tail`** for long text) before throwing, to debug production-only parse failures.
+
+### Tests
+
+- **`generate-steam-summary.test.ts`** — Covers parse-failure log payload and **`tail`** when assistant text exceeds the head + tail threshold.
+
 ## [0.30.8] - 2026-05-11
 
 ### Changed
@@ -826,6 +837,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _This changelog was started with v0.8.0._
 
+[0.30.9]: https://github.com/chrisvogt/chronogrove/compare/v0.30.8...v0.30.9
 [0.30.8]: https://github.com/chrisvogt/chronogrove/compare/v0.30.7...v0.30.8
 [0.30.3]: https://github.com/chrisvogt/chronogrove/compare/v0.30.2...v0.30.3
 [0.30.2]: https://github.com/chrisvogt/chronogrove/compare/v0.30.1...v0.30.2

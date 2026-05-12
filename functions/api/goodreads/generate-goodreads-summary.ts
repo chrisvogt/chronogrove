@@ -85,7 +85,7 @@ const generateGoodreadsSummary = async (
       })) ?? [])
 
   const prompt = `
-You are writing a short, reader-facing “AI reading summary” for Chris Vogt’s personal homepage (chrisvogt.me). It appears next to a live list of books he recently finished and what he is reading now, so visitors already see titles and ratings there.
+You are writing a short, reader-facing “AI reading summary” for Chris Vogt’s personal homepage (chrisvogt.me). It sits next to a live list of books he recently finished and what he is reading now, so visitors already see titles and ratings there.
 
 Return **valid JSON only** (no markdown fences, no commentary) using this shape:
 {
@@ -99,10 +99,10 @@ Return **valid JSON only** (no markdown fences, no commentary) using this shape:
 Rules for the "response" string (strict — the UI is built for this):
 - **JSON-safe HTML:** escape every ASCII double-quote (U+0022) inside the **response** string as a backslash plus double-quote; do not use raw line breaks inside that string (one line of HTML, or JSON-escaped newline as backslash followed by n). The full payload must be valid JSON.
 - **Two or three** <p>...</p> elements, back-to-back, with nothing before, between, or after them (no wrapper <div>, no line breaks outside the tags).
-- **Third person** only, referring to him as **Chris** (e.g. “Chris tends to…”, “He often…”). Never “I”, “you”, or “the reader”.
-- Tone: calm, specific, a little editorial — like a sharp one-column blurb in a magazine, not marketing fluff. Avoid generic openers (“Chris loves books”, “As an avid reader”).
+- **First person** only: Chris Vogt’s own words — **I**, **my**, **me**. Do not describe him in third person (“Chris…”, “he…”). Avoid pivoting to address the visitor as **you**; stay in first-person perspective throughout.
+- **Voice** (match chrisvogt.me editorial tone): calm, specific, a little editorial — like a sharp one-column blurb, not marketing. Prefer concrete habits, streaks, or a through-line over filler openers (“I love books”, “Reading has always been…”, “As an avid reader”). No meta lines about this being an AI summary, a widget, or how the page is laid out. No thank-you sign-offs. At most one metaphor or framing detail per paragraph; keep dates and titles accurate when you mention them.
 - **Do not** repeat or enumerate the book list; at most **one** quick nod to a title or theme if it sharpens a point. Ratings are visible elsewhere — mention them only if unusual or telling.
-- **completeReadShelf** is his full “read” shelf from Goodreads (title, authors, ISBN, his stars, finish or date-added). Use it for **long-run habits**: balance of fiction vs non-fiction, streaks, eras, breadth, how tastes shift over time.
+- **completeReadShelf** is his full “read” shelf from Goodreads (title, authors, ISBN, his stars, finish or date-added). Use it for **long-run habits**: balance of fiction vs non-fiction, streaks, eras, breadth, how his tastes shift over time.
 - **recentlyReadBooksForWidget** adds categories and page counts (via Google Books) for what the page actually shows — use it for **texture on what he’s been into lately** (subjects, chunkier vs slimmer books) without re-listing every title.
 
 Styling inside paragraphs (optional, sparse):

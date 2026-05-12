@@ -88,7 +88,7 @@ describe('generateGoodreadsSummary', () => {
 
     const mockResponseText = `\`\`\`json
 {
-  "response": "<p>Chris has been exploring a diverse range of literature lately.</p><p>Recent reads include both classic fiction and contemporary non-fiction.</p>",
+  "response": "<p>I have been pulling from a pretty wide shelf lately.</p><p>Recent picks skew both classic fiction and heavier non-fiction.</p>",
   "debug": {
     "recentlyReadBooks": [{"title": "The Great Gatsby", "authors": ["F. Scott Fitzgerald"], "rating": 4}],
     "readingPatterns": ["fiction", "non-fiction"]
@@ -101,7 +101,7 @@ describe('generateGoodreadsSummary', () => {
     const result = await generateGoodreadsSummary(mockGoodreadsData)
 
     expect(result).toBe(
-      '<p>Chris has been exploring a diverse range of literature lately.</p><p>Recent reads include both classic fiction and contemporary non-fiction.</p>',
+      '<p>I have been pulling from a pretty wide shelf lately.</p><p>Recent picks skew both classic fiction and heavier non-fiction.</p>',
     )
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -129,7 +129,7 @@ describe('generateGoodreadsSummary', () => {
 
     const mockResponseText = `\`\`\`json
 {
-  "response": "<p>Chris's reading activity data is currently unavailable.</p>",
+  "response": "<p>My reading activity data is currently unavailable.</p>",
   "debug": {
     "recentlyReadBooks": [],
     "readingPatterns": []
@@ -141,7 +141,7 @@ describe('generateGoodreadsSummary', () => {
 
     const result = await generateGoodreadsSummary(mockGoodreadsData)
 
-    expect(result).toBe('<p>Chris\'s reading activity data is currently unavailable.</p>')
+    expect(result).toBe('<p>My reading activity data is currently unavailable.</p>')
 
     const prompt = lastUserPrompt()
     expect(prompt).toContain('"recentlyReadBooksForWidget": []')
@@ -338,7 +338,7 @@ describe('generateGoodreadsSummary', () => {
 
     expect(promptCall).toContain('chrisvogt.me')
     expect(promptCall).toContain('Two or three')
-    expect(promptCall).toContain('Third person')
+    expect(promptCall).toContain('First person')
   })
 
   it('returns trimmed text when the model response has no paragraph tags', async () => {
