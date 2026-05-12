@@ -60,7 +60,7 @@ export interface GoodreadsReviewUpdate {
   book?: GoodreadsReviewBook
   link?: string
   rating?: number
-  type: 'review' | string
+  type: string
   updated?: string
 }
 
@@ -72,7 +72,7 @@ export interface GoodreadsUserStatusUpdate {
   link?: string
   page?: number
   percent?: number
-  type: 'userstatus' | string
+  type: string
   updated?: string
   userID?: string
 }
@@ -97,8 +97,8 @@ export interface GoodreadsProfile {
 export interface GoodreadsRecentlyReadBookFromGoogle {
   book: GoogleBooksVolumeSubset
   rating?: string | null
-  goodreadsDescription?: string | undefined
-  isbn?: string | null | undefined
+  goodreadsDescription?: string
+  isbn?: string | null
   /** Goodreads `read_at` text from the read shelf review list (for ordering). */
   readAt?: string | null
 }

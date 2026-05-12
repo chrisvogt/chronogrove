@@ -55,6 +55,33 @@ export async function mergeCredentialRefresh(
   return payload
 }
 
+async function tryRefreshGitHubAccessTokenForUser(
+  documentStore: DocumentStore,
+  path: string,
+  uid: string,
+  creds: GitHubOAuthCredentialPayload,
+): Promise<GitHubOAuthCredentialPayload | null> {
+  const { clientId, clientSecret } = getGitHubOAuthConfig()
+  if (!clientId || !clientSecret) return null
+  try {
+    const refreshed = await refreshGitHubUserAccessToken({
+      clientId,
+      clientSecret,
+      refreshToken: creds.refreshToken,
+    })
+    const next: GitHubOAuthCredentialPayload = {
+      accessToken: refreshed.access_token,
+      expiresAt: expiresAtFromGithubExpiresIn(refreshed.expires_in),
+      refreshToken: refreshed.refresh_token ?? creds.refreshToken,
+    }
+    return documentStore.mergeDocument
+      ? await mergeCredentialRefresh(documentStore, path, uid, next)
+      : next
+  } catch {
+    return null
+  }
+}
+
 export async function loadGitHubAuthForUser(
   documentStore: DocumentStore,
   uid: string,
@@ -82,25 +109,9 @@ export async function loadGitHubAuthForUser(
   if (!creds.accessToken) return null
 
   if (tokenNeedsRefresh(creds.expiresAt) && creds.refreshToken) {
-    const { clientId, clientSecret } = getGitHubOAuthConfig()
-    if (!clientId || !clientSecret) return null
-    try {
-      const refreshed = await refreshGitHubUserAccessToken({
-        clientId,
-        clientSecret,
-        refreshToken: creds.refreshToken,
-      })
-      const next: GitHubOAuthCredentialPayload = {
-        accessToken: refreshed.access_token,
-        expiresAt: expiresAtFromGithubExpiresIn(refreshed.expires_in),
-        refreshToken: refreshed.refresh_token ?? creds.refreshToken,
-      }
-      creds = documentStore.mergeDocument
-        ? await mergeCredentialRefresh(documentStore, path, uid, next)
-        : next
-    } catch {
-      return null
-    }
+    const nextCreds = await tryRefreshGitHubAccessTokenForUser(documentStore, path, uid, creds)
+    if (!nextCreds) return null
+    creds = nextCreds
   }
 
   return {

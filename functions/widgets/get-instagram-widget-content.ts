@@ -7,8 +7,8 @@ import type {
 import { toDateOrDefault, toUserWidgetContentPath } from './widget-document-store.js'
 
 const getInstagramWidgetContent = async (
+  documentStore: DocumentStore,
   userId: string = getDefaultWidgetUserId(),
-  documentStore: DocumentStore
 ): Promise<InstagramWidgetContent> => {
   const instagramWidgetContentPath = toUserWidgetContentPath(userId, 'instagram')
   const data =

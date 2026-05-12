@@ -51,7 +51,7 @@ describe('getSpotifyWidgetContent', () => {
       },
     })
 
-    const result = await getSpotifyWidgetContent('chrisvogt', documentStore)
+    const result = await getSpotifyWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       collections: {
@@ -100,7 +100,7 @@ describe('getSpotifyWidgetContent', () => {
       },
     })
 
-    const result = await getSpotifyWidgetContent('chrisvogt', documentStore)
+    const result = await getSpotifyWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       meta: {
@@ -112,7 +112,7 @@ describe('getSpotifyWidgetContent', () => {
   it('should throw error when data retrieval fails', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(null)
 
-    await expect(getSpotifyWidgetContent('chrisvogt', documentStore)).rejects.toThrow(
+    await expect(getSpotifyWidgetContent(documentStore, 'chrisvogt')).rejects.toThrow(
       'No Spotify data found in DocumentStore'
     )
   })
@@ -120,7 +120,7 @@ describe('getSpotifyWidgetContent', () => {
   it('should throw error when document store rejects', async () => {
     vi.mocked(documentStore.getDocument).mockRejectedValue(new Error('Database error'))
 
-    await expect(getSpotifyWidgetContent('chrisvogt', documentStore)).rejects.toThrow(
+    await expect(getSpotifyWidgetContent(documentStore, 'chrisvogt')).rejects.toThrow(
       'Database error'
     )
   })

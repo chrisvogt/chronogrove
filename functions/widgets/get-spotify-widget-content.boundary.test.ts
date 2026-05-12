@@ -26,7 +26,7 @@ describe('getSpotifyWidgetContent default boundary wiring', () => {
       meta: {},
     })
 
-    await expect(getSpotifyWidgetContent(undefined, documentStore)).resolves.toEqual({
+    await expect(getSpotifyWidgetContent(documentStore)).resolves.toEqual({
       collections: { topTracks: [] },
       meta: {
         synced: new Date(0),

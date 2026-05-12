@@ -48,7 +48,7 @@ describe('getGoodreadsWidgetContent', () => {
 
     vi.mocked(documentStore.getDocument).mockResolvedValue(mockData)
 
-    const result = await getGoodreadsWidgetContent('user123', documentStore)
+    const result = await getGoodreadsWidgetContent(documentStore, 'user123')
 
     expect(result).toEqual({
       collections: mockData.collections,
@@ -73,7 +73,7 @@ describe('getGoodreadsWidgetContent', () => {
 
     vi.mocked(documentStore.getDocument).mockResolvedValue(mockData)
 
-    const result = await getGoodreadsWidgetContent('user123', documentStore)
+    const result = await getGoodreadsWidgetContent(documentStore, 'user123')
 
     expect(result).toEqual({
       meta: {
@@ -85,7 +85,7 @@ describe('getGoodreadsWidgetContent', () => {
   it('should return default widget content when doc does not exist', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(undefined)
 
-    const result = await getGoodreadsWidgetContent('user123', documentStore)
+    const result = await getGoodreadsWidgetContent(documentStore, 'user123')
 
     expect(result).toEqual({
       meta: { synced: new Date(0) },
@@ -97,6 +97,6 @@ describe('getGoodreadsWidgetContent', () => {
   it('should throw error when get() throws', async () => {
     vi.mocked(documentStore.getDocument).mockRejectedValue(new Error('Database error'))
 
-    await expect(getGoodreadsWidgetContent('user123', documentStore)).rejects.toThrow('Database error')
+    await expect(getGoodreadsWidgetContent(documentStore, 'user123')).rejects.toThrow('Database error')
   })
 })

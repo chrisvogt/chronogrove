@@ -28,7 +28,7 @@ describe('getSteamWidgetContent', () => {
       metrics: [{ displayName: 'Games', id: 'owned-games', value: 42 }],
     })
 
-    const result = await getSteamWidgetContent('chrisvogt', documentStore)
+    const result = await getSteamWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       collections: {
@@ -46,7 +46,7 @@ describe('getSteamWidgetContent', () => {
   it('should return the default synced date when no document exists', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(null)
 
-    const result = await getSteamWidgetContent('chrisvogt', documentStore)
+    const result = await getSteamWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       meta: { synced: new Date(0) },
@@ -60,7 +60,7 @@ describe('getSteamWidgetContent', () => {
       },
     })
 
-    const result = await getSteamWidgetContent('chrisvogt', documentStore)
+    const result = await getSteamWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       collections: {

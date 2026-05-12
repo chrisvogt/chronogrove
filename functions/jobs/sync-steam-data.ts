@@ -19,6 +19,20 @@ import generateSteamSummary from '../api/ai-summary/generate-steam-summary.js'
 import { getDefaultWidgetUserId, toProviderCollectionPath } from '../config/backend-paths.js'
 import { getSteamConfig } from '../config/backend-config.js'
 
+function messageFromUnknownError(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message
+  }
+  if (typeof err === 'string') {
+    return err
+  }
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return 'Unknown error'
+  }
+}
+
 const transformSteamGame = (game: SteamApiGame) => {
   const {
     appid: id,
@@ -152,13 +166,14 @@ const syncSteamData = async (
       phase: 'steam.ai',
       message: 'Generating Steam play-summary (AI).',
     })
-    const summaryInput: SteamSummaryInput = {
-      collections: widgetContent.collections!,
-      metrics: widgetContent.metrics!,
-      profile: widgetContent.profile!,
+    const collections = widgetContent.collections
+    const metrics = widgetContent.metrics
+    const profile = widgetContent.profile
+    if (collections && metrics && profile) {
+      const summaryInput: SteamSummaryInput = { collections, metrics, profile }
+      aiSummary = await generateSteamSummary(summaryInput)
+      widgetContent.aiSummary = aiSummary
     }
-    aiSummary = await generateSteamSummary(summaryInput)
-    widgetContent.aiSummary = aiSummary
   } catch (error) {
     logger.error('Failed to generate AI summary:', error)
     // Continue with sync even if AI summary fails
@@ -196,7 +211,7 @@ const syncSteamData = async (
     logger.error('Failed to save Steam data to database.', err)
     return {
       result: 'FAILURE',
-      error: err instanceof Error ? err.message : err,
+      error: messageFromUnknownError(err),
     }
   }
 }

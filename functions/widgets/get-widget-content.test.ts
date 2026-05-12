@@ -68,7 +68,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('discogs', 'user123', documentStore)
 
-    expect(getDiscogsWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getDiscogsWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -100,7 +100,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('goodreads', 'user123', documentStore)
 
-    expect(getGoodreadsWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getGoodreadsWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -110,7 +110,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('instagram', 'user123', documentStore)
 
-    expect(getInstagramWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getInstagramWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -120,7 +120,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('spotify', 'user123', documentStore)
 
-    expect(getSpotifyWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getSpotifyWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -130,7 +130,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('steam', 'user123', documentStore)
 
-    expect(getSteamWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getSteamWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -140,7 +140,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('flickr', 'user123', documentStore)
 
-    expect(getFlickrWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getFlickrWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -150,7 +150,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('goodreads', 'user123', documentStore)
 
-    expect(getGoodreadsWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getGoodreadsWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -160,7 +160,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('discogs', 'user123', documentStore)
 
-    expect(getDiscogsWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getDiscogsWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -170,7 +170,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('instagram', 'user123', documentStore)
 
-    expect(getInstagramWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getInstagramWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -180,7 +180,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('spotify', 'user123', documentStore)
 
-    expect(getSpotifyWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getSpotifyWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 
@@ -190,7 +190,7 @@ describe('getWidgetContent', () => {
 
     const result = await getWidgetContent('steam', 'user123', documentStore)
 
-    expect(getSteamWidgetContent).toHaveBeenCalledWith('user123', documentStore)
+    expect(getSteamWidgetContent).toHaveBeenCalledWith(documentStore, 'user123')
     expect(result).toEqual({ payload: mockContent })
   })
 

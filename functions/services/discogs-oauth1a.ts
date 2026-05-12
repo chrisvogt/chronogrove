@@ -25,7 +25,7 @@ export const DISCOGS_AUTHORIZE_URL = 'https://www.discogs.com/oauth/authorize'
  * (same as typical OAuth 1.0a consumers).
  */
 function oauth1AuthorizationHeader(params: Record<string, string>): string {
-  const keys = Object.keys(params).sort((a, b) => (a === b ? 0 : a < b ? -1 : 1))
+  const keys = Object.keys(params).sort((a, b) => a.localeCompare(b))
   const parts = keys.map((k) => `${oauthPercentEncode(k)}="${oauthPercentEncode(params[k] ?? '')}"`)
   return `OAuth ${parts.join(', ')}`
 }
@@ -162,7 +162,7 @@ export async function discogsOAuthGotGet(
 
 export async function discogsGetIdentity(auth: DiscogsOAuthSigningAuth): Promise<{ username: string }> {
   const { body } = await discogsOAuthGotGet('https://api.discogs.com/oauth/identity', auth)
-  const data = JSON.parse(body as string) as { username?: string }
+  const data = JSON.parse(body) as { username?: string }
   if (!data.username || typeof data.username !== 'string') {
     throw new Error('Discogs OAuth identity response missing username')
   }

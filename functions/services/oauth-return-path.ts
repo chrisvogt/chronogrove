@@ -16,7 +16,7 @@ export function validateReturnTo(raw: unknown): string | null {
 
   const hashIdx = s.indexOf('#')
   const beforeHash = hashIdx === -1 ? s : s.slice(0, hashIdx)
-  const pathPart = beforeHash.split('?')[0] as string
+  const pathPart = beforeHash.split('?')[0] ?? ''
   if (pathPart.includes('..')) return null
 
   return s

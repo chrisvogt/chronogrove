@@ -37,14 +37,14 @@ export const titleForGoogleBooksVolumeQuery = (book: {
 }): string =>
   simplifyTitleForGoogleBooksQuery(book.title ?? '') || (book.title ?? '').trim()
 
-const toBookMediaDestinationPath = id => `books/${id}-thumbnail.jpg`
+const toBookMediaDestinationPath = (id: string) => `books/${id}-thumbnail.jpg`
 
 type GotLikeError = {
   response?: { statusCode?: number; body?: unknown }
   statusCode?: number
 }
 
-function parseGoogleBooksApiErrorBody(error: unknown): unknown | null {
+function parseGoogleBooksApiErrorBody(error: unknown): unknown {
   const gotErr = error as GotLikeError
   const raw = gotErr.response?.body
   if (raw == null) {

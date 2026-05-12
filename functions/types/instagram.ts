@@ -2,11 +2,7 @@
  * Instagram Graph API fragments used in sync, media download, and widget transforms.
  */
 
-export type InstagramMediaType =
-  | 'CAROUSEL_ALBUM'
-  | 'IMAGE'
-  | 'VIDEO'
-  | string
+export type InstagramMediaType = string
 
 export interface InstagramGraphChild {
   id: string

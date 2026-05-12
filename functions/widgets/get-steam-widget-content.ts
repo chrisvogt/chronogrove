@@ -7,8 +7,8 @@ import type {
 import { toDateOrDefault, toUserWidgetContentPath } from './widget-document-store.js'
 
 const getSteamWidgetContent = async (
+  documentStore: DocumentStore,
   userId: string = getDefaultWidgetUserId(),
-  documentStore: DocumentStore
 ): Promise<SteamWidgetContent> => {
   const steamWidgetContentPath = toUserWidgetContentPath(userId, 'steam')
   const data = await documentStore.getDocument<SteamWidgetDocument>(steamWidgetContentPath)

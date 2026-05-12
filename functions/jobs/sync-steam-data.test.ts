@@ -327,6 +327,23 @@ describe('syncSteamData', () => {
     })
   })
 
+  it('formats self-referential unknown errors when persist fails', async () => {
+    vi.mocked(getRecentlyPlayedGames).mockResolvedValue([])
+    vi.mocked(getOwnedGames).mockResolvedValue({ game_count: 0, games: [] })
+    vi.mocked(getPlayerSummary).mockResolvedValue({})
+    vi.mocked(generateSteamSummary).mockResolvedValue(null)
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    vi.mocked(documentStore.setDocument).mockRejectedValue(circular)
+
+    const result = await syncSteamData(documentStore)
+
+    expect(result).toEqual({
+      result: 'FAILURE',
+      error: 'Unknown error',
+    })
+  })
+
   it('should continue writing Steam data to canonical collections', async () => {
     vi.mocked(getRecentlyPlayedGames).mockResolvedValue([])
     vi.mocked(getOwnedGames).mockResolvedValue({ game_count: 0, games: [] })

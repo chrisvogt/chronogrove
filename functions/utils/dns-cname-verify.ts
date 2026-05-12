@@ -4,6 +4,14 @@ function normalizeDnsName(name: string): string {
   return name.toLowerCase().replace(/\.$/, '')
 }
 
+function nodeDnsErrorCode(err: unknown): string | undefined {
+  if (err !== null && typeof err === 'object' && 'code' in err) {
+    const code = (err as { code?: unknown }).code
+    return typeof code === 'string' ? code : undefined
+  }
+  return undefined
+}
+
 /**
  * True if `hostname` equals `target` or a CNAME chain from `hostname` reaches `target`.
  * Used for onboarding custom-domain DNS checks.
@@ -29,12 +37,9 @@ export async function hostnameCnameChainsTo(
         const n = normalizeDnsName(c)
         if (n === want) return true
       }
-      current = normalizeDnsName(cnames[0]!)
+      current = normalizeDnsName(cnames[0] as string)
     } catch (err: unknown) {
-      const code =
-        err !== null && typeof err === 'object' && 'code' in err
-          ? (err as { code?: string }).code
-          : undefined
+      const code = nodeDnsErrorCode(err)
       if (code === 'ENOTFOUND' || code === 'ENODATA') return false
       throw err
     }

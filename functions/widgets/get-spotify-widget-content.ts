@@ -7,8 +7,8 @@ import type {
 import { toDateOrDefault, toUserWidgetContentPath } from './widget-document-store.js'
 
 const getSpotifyWidgetContent = async (
+  documentStore: DocumentStore,
   userId: string = getDefaultWidgetUserId(),
-  documentStore: DocumentStore
 ): Promise<SpotifyWidgetContent> => {
   const spotifyWidgetContentPath = toUserWidgetContentPath(userId, 'spotify')
   const data =

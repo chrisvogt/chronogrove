@@ -36,7 +36,7 @@ describe('getInstagramWidgetContent', () => {
       },
     })
 
-    const result = await getInstagramWidgetContent('chrisvogt', documentStore)
+    const result = await getInstagramWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       collections: {
@@ -104,7 +104,7 @@ describe('getInstagramWidgetContent', () => {
       },
     })
 
-    const result = await getInstagramWidgetContent('chronogrove', documentStore)
+    const result = await getInstagramWidgetContent(documentStore, 'chronogrove')
 
     expect(result.profile).toEqual({
       biography: 'Chronogrove bio',
@@ -126,7 +126,7 @@ describe('getInstagramWidgetContent', () => {
       media: [],
     })
 
-    const result = await getInstagramWidgetContent('chrisvogt', documentStore)
+    const result = await getInstagramWidgetContent(documentStore, 'chrisvogt')
 
     expect(result.profile).toEqual({
       biography: '',
@@ -167,7 +167,7 @@ describe('getInstagramWidgetContent', () => {
       },
     })
 
-    const result = await getInstagramWidgetContent('chrisvogt', documentStore)
+    const result = await getInstagramWidgetContent(documentStore, 'chrisvogt')
 
     expect(result.profile).toEqual({
       biography: '',
@@ -179,7 +179,7 @@ describe('getInstagramWidgetContent', () => {
   it('should throw error when data retrieval returns nothing', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(null)
 
-    await expect(getInstagramWidgetContent('chrisvogt', documentStore)).rejects.toThrow(
+    await expect(getInstagramWidgetContent(documentStore, 'chrisvogt')).rejects.toThrow(
       'Failed to get a response.'
     )
   })
@@ -187,7 +187,7 @@ describe('getInstagramWidgetContent', () => {
   it('should throw error when document store rejects', async () => {
     vi.mocked(documentStore.getDocument).mockRejectedValue(new Error('Database error'))
 
-    await expect(getInstagramWidgetContent('chrisvogt', documentStore)).rejects.toThrow(
+    await expect(getInstagramWidgetContent(documentStore, 'chrisvogt')).rejects.toThrow(
       'Database error'
     )
   })
@@ -195,7 +195,7 @@ describe('getInstagramWidgetContent', () => {
   it('should rethrow non-Error failures from the document store', async () => {
     vi.mocked(documentStore.getDocument).mockRejectedValue('Database error')
 
-    await expect(getInstagramWidgetContent('chrisvogt', documentStore)).rejects.toBe(
+    await expect(getInstagramWidgetContent(documentStore, 'chrisvogt')).rejects.toBe(
       'Database error'
     )
   })

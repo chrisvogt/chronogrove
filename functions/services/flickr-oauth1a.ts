@@ -37,10 +37,11 @@ function normalizeParamPairs(params: Record<string, string>): [string, string][]
 /** Lexicographic sort by key then value (OAuth 1.0). */
 export function sortParamPairs(pairs: [string, string][]): [string, string][] {
   return [...pairs].sort((a, b) => {
-    if (a[0] === b[0]) {
-      return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0
+    const keyCmp = a[0].localeCompare(b[0])
+    if (keyCmp !== 0) {
+      return keyCmp
     }
-    return a[0] < b[0] ? -1 : 1
+    return a[1].localeCompare(b[1])
   })
 }
 

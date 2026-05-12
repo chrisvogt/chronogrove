@@ -5,7 +5,7 @@ import { chronogroveHttpUserAgent } from '../../config/chronogrove-http-user-age
 import type { ResolvedDiscogsApiAuth } from '../../services/discogs-integration-credentials.js'
 import { discogsOAuthGotGet } from '../../services/discogs-oauth1a.js'
 
-function buildReleaseFetchUrl(
+export function buildReleaseFetchUrl(
   resourceUrl: string,
   apiKey: string | undefined,
   oauth?: ResolvedDiscogsApiAuth
@@ -13,8 +13,11 @@ function buildReleaseFetchUrl(
   if (oauth || resourceUrl.includes('token=')) {
     return resourceUrl
   }
+  if (apiKey === undefined || apiKey === '') {
+    throw new Error('Discogs API key is required when the release URL has no token parameter.')
+  }
   const separator = resourceUrl.includes('?') ? '&' : '?'
-  return `${resourceUrl}${separator}token=${apiKey as string}`
+  return `${resourceUrl}${separator}token=${apiKey}`
 }
 
 type FetchAttemptResult =

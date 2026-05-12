@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { OnboardingProgressPayload } from './SettingsProfileIdentity'
 import {
+  profileIdentityLoadFailureMessage,
   SettingsCustomDomainBlock,
   SettingsProfileIdentity,
   SettingsUsernameBlock,
@@ -99,6 +100,16 @@ async function waitUntilSaveUsernameEnabled() {
   })
 }
 
+describe('profileIdentityLoadFailureMessage', () => {
+  it('uses default copy when loadError is null', () => {
+    expect(profileIdentityLoadFailureMessage(null)).toBe('Could not load profile.')
+  })
+
+  it('returns the API or parse error when present', () => {
+    expect(profileIdentityLoadFailureMessage('No profile data.')).toBe('No profile data.')
+  })
+})
+
 describe('SettingsProfileIdentity', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -116,6 +127,13 @@ describe('SettingsProfileIdentity', () => {
   it('shows restoring session when api session is not ready', () => {
     render(<SettingsProfileIdentity user={mockUser()} apiSessionReady={false} />)
     expect(screen.getByText(/restoring session/i)).toBeInTheDocument()
+  })
+
+  it('does not fetch profile when the user ref is empty (effect guard)', () => {
+    render(
+      <SettingsProfileIdentity user={null as unknown as User} apiSessionReady />,
+    )
+    expect(getJson).not.toHaveBeenCalled()
   })
 
   it('loads profile and renders username and domain sections', async () => {

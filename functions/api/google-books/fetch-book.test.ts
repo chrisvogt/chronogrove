@@ -85,6 +85,12 @@ describe('fetchBook', () => {
     })
   })
 
+  it('returns null immediately when maxRetries is zero (loop does not run)', async () => {
+    const result = await fetchBook({ isbn: '9780143127550', rating: '4' }, 0)
+    expect(result).toBeNull()
+    expect(mockGot).not.toHaveBeenCalled()
+  })
+
   it('should throw error when ISBN is missing', async () => {
     const bookInput = {
       isbn: null,
