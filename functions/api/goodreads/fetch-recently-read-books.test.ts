@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import fetchRecentlyReadBooks from './fetch-recently-read-books.js'
+import fetchRecentlyReadBooks, {
+  titleForGoogleBooksVolumeQuery,
+} from './fetch-recently-read-books.js'
 
 // Mock dependencies
 vi.mock('xml2js', () => ({
@@ -37,6 +39,24 @@ vi.mock('../../selectors/media-store.js', () => ({
 vi.mock('p-map', () => ({
   default: vi.fn()
 }))
+
+describe('titleForGoogleBooksVolumeQuery', () => {
+  it('returns empty when title is absent, null, undefined, or whitespace-only', () => {
+    expect(titleForGoogleBooksVolumeQuery({})).toBe('')
+    expect(titleForGoogleBooksVolumeQuery({ title: undefined })).toBe('')
+    expect(titleForGoogleBooksVolumeQuery({ title: null })).toBe('')
+    expect(titleForGoogleBooksVolumeQuery({ title: '   ' })).toBe('')
+  })
+
+  it('strips series parentheticals and applies fallback when simplify empties title', () => {
+    expect(
+      titleForGoogleBooksVolumeQuery({
+        title: 'The Secret Commonwealth (The Book of Dust, #2)',
+      }),
+    ).toBe('The Secret Commonwealth')
+    expect(titleForGoogleBooksVolumeQuery({ title: '(Paren Only)' })).toBe('(Paren Only)')
+  })
+})
 
 describe('fetchRecentlyReadBooks', () => {
   let mockParseString

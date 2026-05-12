@@ -31,6 +31,12 @@ import { getXmlTextOrUndefined } from '../../utils/goodreads-xml.js'
 import { sortGoodreadsRecentlyReadBooksByReadAtDesc } from '../../utils/sort-goodreads-recently-read-books.js'
 import { simplifyTitleForGoogleBooksQuery } from '../../utils/simplify-title-for-google-books-query.js'
 
+/** Exported for unit tests and Codecov (caller only invokes fallback when `book.title` is truthy). */
+export const titleForGoogleBooksVolumeQuery = (book: {
+  title?: string | null
+}): string =>
+  simplifyTitleForGoogleBooksQuery(book.title ?? '') || (book.title ?? '').trim()
+
 const toBookMediaDestinationPath = id => `books/${id}-thumbnail.jpg`
 
 type GotLikeError = {
@@ -57,8 +63,7 @@ function parseGoogleBooksApiErrorBody(error: unknown): unknown | null {
 async function fetchGoogleBookByTitleFallback(
   book: GoodreadsReviewListBookSource,
 ): Promise<GoogleBooksFetchByIsbnResult | null> {
-  const titleForQuery =
-    simplifyTitleForGoogleBooksQuery(book.title ?? '') || (book.title ?? '').trim()
+  const titleForQuery = titleForGoogleBooksVolumeQuery(book)
   const searchQuery = book.authorName
     ? `intitle:${titleForQuery} inauthor:${book.authorName}`
     : `intitle:${titleForQuery}`
