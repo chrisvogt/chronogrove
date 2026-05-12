@@ -220,6 +220,21 @@ describe('syncGoodreadsData', () => {
     expect(documentStore.setDocument).not.toHaveBeenCalled()
   })
 
+  it('persists null updates when Goodreads user payload has null updates', async () => {
+    fetchUser.mockResolvedValue({
+      profile: { displayName: 'Reader' },
+      updates: null,
+      jsonResponse: {},
+    })
+    fetchRecentlyReadBooks.mockResolvedValue({ books: [], rawReviewsResponse: [] })
+    generateGoodreadsSummary.mockResolvedValue('<p>x</p>')
+
+    const result = await syncGoodreadsData(documentStore)
+
+    expect(result.result).toBe('SUCCESS')
+    expect(result.data.collections?.updates).toBeNull()
+  })
+
   it('should handle database save errors', async () => {
     const mockUserData = {
       profile: { displayName: 'Test User' },
@@ -241,6 +256,28 @@ describe('syncGoodreadsData', () => {
     expect(result).toEqual({
       result: 'FAILURE',
       error: 'Database Error'
+    })
+  })
+
+  it('should surface non-Error database save failures', async () => {
+    const mockUserData = {
+      profile: { displayName: 'Test User' },
+      updates: [],
+      jsonResponse: {},
+    }
+    const mockRecentlyReadData = {
+      books: [],
+      rawReviewsResponse: {},
+    }
+    fetchUser.mockResolvedValue(mockUserData)
+    fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+    vi.mocked(documentStore.setDocument).mockRejectedValue('persist unavailable')
+
+    const result = await syncGoodreadsData(documentStore)
+
+    expect(result).toEqual({
+      result: 'FAILURE',
+      error: 'persist unavailable',
     })
   })
 
@@ -1690,6 +1727,133 @@ describe('syncGoodreadsData', () => {
         expect.objectContaining({
           message: 'Quota exceeded for quota metric'
         })
+      )
+    })
+
+    it('should treat 429 with Quota exceeded message as quota when status is not RESOURCE_EXHAUSTED', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: {
+              isbn13: '9780143127550',
+              title: 'Test Book'
+            }
+          }
+        ],
+        jsonResponse: { user: 'data' }
+      }
+
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' }
+      }
+
+      const quotaMessageOnlyError = {
+        response: {
+          statusCode: 429,
+          body: JSON.stringify({
+            error: {
+              code: 429,
+              message: 'Quota exceeded for this project.',
+            },
+          }),
+        }
+      }
+
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockRejectedValue(quotaMessageOnlyError)
+      mockListStoredMedia.mockResolvedValue([])
+
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          const result = await mapper(items[i], i)
+          results.push(result)
+        }
+        return results
+      })
+
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+
+      expect(result.result).toBe('SUCCESS')
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Daily quota exceeded for Google Books API. Book fetch will be skipped.',
+        expect.objectContaining({
+          message: 'Quota exceeded for this project.',
+        })
+      )
+    })
+
+    it('should retry book fetch when Google returns 503 Service Unavailable', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: {
+              isbn13: '9780143127550',
+              title: 'Test Book'
+            }
+          }
+        ],
+        jsonResponse: { user: 'data' }
+      }
+
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' }
+      }
+
+      const serviceUnavailableError = {
+        response: {
+          statusCode: 503,
+          body: JSON.stringify({ error: { message: 'Backend unavailable' } })
+        }
+      }
+
+      const mockGoogleBookResult = {
+        book: {
+          id: 'google-book-id',
+          volumeInfo: {
+            title: 'Test Book',
+            imageLinks: {
+              thumbnail: 'http://books.google.com/thumb.jpg'
+            }
+          }
+        },
+        rating: null
+      }
+
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle
+        .mockRejectedValueOnce(serviceUnavailableError)
+        .mockResolvedValueOnce(mockGoogleBookResult)
+      mockListStoredMedia.mockResolvedValue([])
+
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          const result = await mapper(items[i], i)
+          results.push(result)
+        }
+        return results
+      })
+
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+
+      expect(result.result).toBe('SUCCESS')
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringMatching(/Rate limited \(503\)/),
       )
     })
 

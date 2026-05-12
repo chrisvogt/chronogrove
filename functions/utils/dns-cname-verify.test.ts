@@ -42,13 +42,32 @@ describe('hostnameCnameChainsTo', () => {
     ).resolves.toBe(false)
   })
 
-  it('returns false on ENODATA / ENOTFOUND', async () => {
+  it('returns false on ENOTFOUND', async () => {
     const err = Object.assign(new Error('not found'), { code: 'ENOTFOUND' as const })
     vi.spyOn(dns.promises, 'resolveCname').mockRejectedValue(err)
 
     await expect(
       hostnameCnameChainsTo('widgets.example.com', 'personal-stats-chrisvogt.web.app')
     ).resolves.toBe(false)
+  })
+
+  it('returns false on ENODATA', async () => {
+    const err = Object.assign(new Error('no data'), { code: 'ENODATA' as const })
+    vi.spyOn(dns.promises, 'resolveCname').mockRejectedValue(err)
+
+    await expect(
+      hostnameCnameChainsTo('widgets.example.com', 'personal-stats-chrisvogt.web.app')
+    ).resolves.toBe(false)
+  })
+
+  it('follows the first record when multiple CNAMEs are returned and none match the target yet', async () => {
+    vi.spyOn(dns.promises, 'resolveCname')
+      .mockResolvedValueOnce(['hop-a.example.com', 'hop-b.example.com'])
+      .mockResolvedValueOnce(['personal-stats-chrisvogt.web.app'])
+
+    await expect(
+      hostnameCnameChainsTo('start.example.com', 'personal-stats-chrisvogt.web.app')
+    ).resolves.toBe(true)
   })
 
   it('returns true when hostname already equals target', async () => {
@@ -70,6 +89,14 @@ describe('hostnameCnameChainsTo', () => {
     await expect(
       hostnameCnameChainsTo('widgets.example.com', 'personal-stats-chrisvogt.web.app')
     ).rejects.toThrow('SERVFAIL')
+  })
+
+  it('rethrows when the DNS error object has a non-string code', async () => {
+    vi.spyOn(dns.promises, 'resolveCname').mockRejectedValue({ code: 1 })
+
+    await expect(
+      hostnameCnameChainsTo('widgets.example.com', 'personal-stats-chrisvogt.web.app')
+    ).rejects.toEqual({ code: 1 })
   })
 
   it('returns false when max hops are exhausted without reaching the target', async () => {

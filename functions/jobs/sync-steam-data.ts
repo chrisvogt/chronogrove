@@ -166,14 +166,13 @@ const syncSteamData = async (
       phase: 'steam.ai',
       message: 'Generating Steam play-summary (AI).',
     })
-    const collections = widgetContent.collections
-    const metrics = widgetContent.metrics
-    const profile = widgetContent.profile
-    if (collections && metrics && profile) {
-      const summaryInput: SteamSummaryInput = { collections, metrics, profile }
-      aiSummary = await generateSteamSummary(summaryInput)
-      widgetContent.aiSummary = aiSummary
+    const summaryInput: SteamSummaryInput = {
+      collections: widgetContent.collections,
+      metrics: widgetContent.metrics,
+      profile: widgetContent.profile,
     }
+    aiSummary = await generateSteamSummary(summaryInput)
+    widgetContent.aiSummary = aiSummary
   } catch (error) {
     logger.error('Failed to generate AI summary:', error)
     // Continue with sync even if AI summary fails
