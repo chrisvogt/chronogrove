@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - **`simplify-title-for-google-books-query.test.ts`** — Parenthetical strip, **`#n`** suffix, length cap, whitespace.
+- **`fetch-recently-read-books.test.ts`** / **`sync-goodreads-data.test.ts`** — Assert **`intitle:`** uses simplified titles and **`||`** fallback when simplification yields an empty string (Codecov patch coverage).
 
 ## [0.30.9] - 2026-05-11
 
