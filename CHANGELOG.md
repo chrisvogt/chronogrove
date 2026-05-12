@@ -15,6 +15,8 @@ Package-specific changes:
 
 ### Changed
 
+- **Workspace** — **Functions 0.31.0**: **Spotify** and **Discogs** widget syncs generate **Anthropic** AI summaries (**`aiSummary`** on **`widget-content`**, persisted to **`last-response_ai-summary`**), matching the Goodreads/Steam pattern; **Codecov** patch gate raised to **99%**. **Console 0.6.28**: schema examples include sample **`aiSummary`** for Spotify and Discogs payloads. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)** and **[apps/console/CHANGELOG.md](apps/console/CHANGELOG.md)**.
+
 - **Workspace** — **Functions 0.30.10**: Goodreads Google Books title/author search **sanitizes** series parentheticals in **`intitle:`** queries to avoid **400** from the Books API. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
 
 - **Workspace** — **Functions 0.30.9**: Goodreads and Steam widget AI summaries use **first-person** prompts; Steam adds structured **Cloud Logging** on JSON parse failure (**`head`** / **`tail`** / indices). See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.

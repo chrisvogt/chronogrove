@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-05-11
+
+### Added
+
+- **Spotify + Discogs AI summaries** — On successful sync, **`generate-spotify-summary`** and **`generate-discogs-summary`** (Anthropic **`claude-sonnet-4-6`**, same JSON → HTML `<p>` contract as Goodreads/Steam) populate **`aiSummary`** on **`widget-content`** and save **`last-response_ai-summary`**. Spotify prompts use profile, metrics, **top tracks**, and playlist metadata; Discogs prompts use rollups (genres, styles, decades) plus the newest **72** releases (compact), derived from **`buildDiscogsSummaryInput`**.
+
+### Tests
+
+- **`generate-spotify-summary.test.ts`** / **`generate-discogs-summary.test.ts`** — Mirrors **`generate-steam-summary`**: API failures, unparseable assistant text (including **`head`** / **`tail`** logging), non-string **`response`**, and **`messageFromUnknownError`** branches; Discogs builder tests for large collections, invalid years/dates, and loose artist/format parsing.
+- **`sync-spotify-data.test.ts`** / **`sync-discogs-data.test.ts`** — Sync **continues** when AI generation throws; progress phases include **`spotify.ai`** and **`discogs.ai`**.
+
 ## [0.30.10] - 2026-05-12
 
 ### Fixed
@@ -848,6 +859,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _This changelog was started with v0.8.0._
 
+[0.31.0]: https://github.com/chrisvogt/chronogrove/compare/v0.30.10...v0.31.0
 [0.30.10]: https://github.com/chrisvogt/chronogrove/compare/v0.30.9...v0.30.10
 [0.30.9]: https://github.com/chrisvogt/chronogrove/compare/v0.30.8...v0.30.9
 [0.30.8]: https://github.com/chrisvogt/chronogrove/compare/v0.30.7...v0.30.8

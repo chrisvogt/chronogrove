@@ -7,6 +7,12 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.28] - 2026-05-11
+
+### Changed
+
+- **Schema examples** — **`widgetResponseExamples`** for **Spotify** and **Discogs** include sample **`aiSummary`** text matching the Functions widget document.
+
 ## [0.6.27] - 2026-05-10
 
 ### Fixed

@@ -1,5 +1,7 @@
 import pMap from 'p-map'
 import type { DocumentStore } from '../ports/document-store.js'
+import type { SpotifySummaryInput } from '../types/spotify-summary.js'
+import type { SpotifyWidgetDocument } from '../types/widget-content.js'
 import {
   describeMediaStore,
   listStoredMedia,
@@ -21,6 +23,46 @@ import { getLogger } from '../services/logger.js'
 import transformTrackToCollectionItem from '../transformers/track-to-collection-item.js'
 import { toStoredDateTime } from '../utils/time.js'
 import type { SyncJobExecutionOptions } from '../types/sync-pipeline.js'
+import generateSpotifySummary from '../api/ai-summary/generate-spotify-summary.js'
+
+/** Exported for unit tests (Codecov patch branches on playlist/profile shaping). */
+export const toSpotifySummaryInput = (content: SpotifyWidgetDocument): SpotifySummaryInput => {
+  const playlistsRaw = (content.collections?.playlists ?? []) as Array<{
+    description?: string
+    name?: string
+    public?: boolean
+    tracks?: { total?: number }
+  }>
+  const topTracksRaw = (content.collections?.topTracks ?? []) as Array<{
+    artists?: string[]
+    name?: string
+  }>
+
+  return {
+    metrics: content.metrics ?? [],
+    playlists: playlistsRaw.slice(0, 50).map((p) => ({
+      description:
+        typeof p.description === 'string' && p.description.length > 240
+          ? `${p.description.slice(0, 239)}…`
+          : p.description,
+      name: typeof p.name === 'string' ? p.name : 'Playlist',
+      public: p.public,
+      trackCount: p.tracks?.total,
+    })),
+    profile: {
+      displayName: content.profile?.displayName,
+      followersCount: content.profile?.followersCount,
+      id: typeof content.profile?.id === 'string' ? content.profile.id : undefined,
+      profileURL: content.profile?.profileURL,
+    },
+    topTracks: topTracksRaw
+      .map((t) => ({
+        artists: Array.isArray(t.artists) ? t.artists : [],
+        name: typeof t.name === 'string' ? t.name : '',
+      }))
+      .filter((t) => t.name.length > 0),
+  }
+}
 
 const SPOTIFY_MOSAIC_BASE_URL = 'https://mosaic.scdn.co/300/'
 
@@ -180,7 +222,7 @@ const syncSpotifyTopTracks = async (
 
   const avatarURL = images.find(({ url }) => !!url)
 
-  const widgetContent = {
+  const widgetContent: SpotifyWidgetDocument = {
     collections: {
       playlists,
       topTracks: topTracks.map(transformTrackToCollectionItem),
@@ -214,6 +256,18 @@ const syncSpotifyTopTracks = async (
     },
   }
 
+  let aiSummary: string | null = null
+  try {
+    onProgress?.({
+      phase: 'spotify.ai',
+      message: 'Generating Spotify listening summary (AI).',
+    })
+    aiSummary = await generateSpotifySummary(toSpotifySummaryInput(widgetContent))
+    widgetContent.aiSummary = aiSummary
+  } catch (error) {
+    logger.error('Failed to generate Spotify AI summary.', error)
+  }
+
   const savePlaylists = async () => await documentStore.setDocument(
     `${spotifyCollectionPath}/last-response_playlists`,
     {
@@ -241,6 +295,15 @@ const syncSpotifyTopTracks = async (
   const saveWidgetContent = async () =>
     await documentStore.setDocument(`${spotifyCollectionPath}/widget-content`, widgetContent)
 
+  const saveAISummary = async () => {
+    if (aiSummary) {
+      await documentStore.setDocument(`${spotifyCollectionPath}/last-response_ai-summary`, {
+        generatedAt: toStoredDateTime(),
+        summary: aiSummary,
+      })
+    }
+  }
+
   try {
     onProgress?.({
       phase: 'spotify.persist',
@@ -251,6 +314,7 @@ const syncSpotifyTopTracks = async (
       saveTopTracksResponse(),
       saveUserProfileResponse(),
       saveWidgetContent(),
+      saveAISummary(),
     ])
 
     logger.info('Spotify sync finished successfully.', {

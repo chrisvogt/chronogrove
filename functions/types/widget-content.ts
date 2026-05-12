@@ -50,6 +50,7 @@ export interface WidgetMetricValue {
 }
 
 export interface DiscogsWidgetDocument {
+  aiSummary?: string | null
   collections?: {
     releases?: DiscogsTransformedRelease[]
   }
@@ -127,15 +128,25 @@ export interface InstagramWidgetContent {
 }
 
 export interface SpotifyWidgetDocument {
-  collections?: unknown
-  meta?: WidgetMeta
+  aiSummary?: string | null
+  collections?: {
+    playlists?: unknown[]
+    topTracks?: unknown[]
+  }
+  meta?: WidgetMeta & { totalUploadedMediaCount?: number }
   metrics?: WidgetMetricValue[]
-  profile?: unknown
+  profile?: {
+    avatarURL?: { url?: string } | unknown
+    displayName?: string
+    followersCount?: number
+    id?: string
+    profileURL?: string
+  }
 }
 
 export interface SpotifyWidgetContent
   extends Omit<SpotifyWidgetDocument, 'meta'> {
-  meta: WidgetMeta<Date>
+  meta: WidgetMeta<Date> & { totalUploadedMediaCount?: number }
 }
 
 export interface SteamWidgetDocument {

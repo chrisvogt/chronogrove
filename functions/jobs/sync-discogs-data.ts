@@ -13,6 +13,7 @@ import { getLogger } from '../services/logger.js'
 import { loadDiscogsAuthForUser } from '../services/discogs-integration-credentials.js'
 import toDiscogsDestinationPath from '../transformers/to-discogs-destination-path.js'
 import transformDiscogsRelease from '../transformers/transform-discogs-release.js'
+import generateDiscogsSummary, { buildDiscogsSummaryInput } from '../api/ai-summary/generate-discogs-summary.js'
 import { toStoredDateTime } from '../utils/time.js'
 import { getDefaultWidgetUserId, toProviderCollectionPath } from '../config/backend-paths.js'
 import type {
@@ -193,12 +194,50 @@ const syncDiscogsData = async (
       }
     }
 
+    let aiSummary: string | null = null
+    if (transformedReleases.length > 0) {
+      try {
+        onProgress?.({
+          phase: 'discogs.ai',
+          message: 'Generating Discogs collection summary (AI).',
+        })
+        const summaryInput = buildDiscogsSummaryInput(
+          transformedReleases,
+          pagination.items,
+          updatedWidgetContent.profile?.profileURL,
+        )
+        const hasTextSignal =
+          summaryInput.recentReleases.length > 0 ||
+          Object.keys(summaryInput.genreCounts).length > 0 ||
+          Object.keys(summaryInput.styleCounts).length > 0 ||
+          Object.keys(summaryInput.decadeCounts).length > 0
+        if (hasTextSignal) {
+          aiSummary = await generateDiscogsSummary(summaryInput)
+          updatedWidgetContent.aiSummary = aiSummary
+        }
+      } catch (error: unknown) {
+        logger.error('Failed to generate Discogs AI summary.', error)
+      }
+    }
+
     onProgress?.({
       phase: 'discogs.save_widget',
       message: 'Saving Discogs widget document.',
     })
-    // Save the widget content
-    await documentStore.setDocument(`${discogsCollectionPath}/widget-content`, updatedWidgetContent)
+    const saveWidgetContent = async () =>
+      await documentStore.setDocument(`${discogsCollectionPath}/widget-content`, updatedWidgetContent)
+
+    const saveAISummary = async () => {
+      if (aiSummary) {
+        await documentStore.setDocument(`${discogsCollectionPath}/last-response_ai-summary`, {
+          generatedAt: toStoredDateTime(),
+          summary: aiSummary,
+        })
+      }
+    }
+
+    await saveWidgetContent()
+    await saveAISummary()
 
     const titleByReleaseId = new Map<string, string>()
     for (const raw of enhancedReleases) {
