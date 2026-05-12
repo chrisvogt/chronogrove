@@ -13,6 +13,10 @@ Package-specific changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Functions** — Flickr and Discogs **OAuth 1.0a** normalize signing parameters with **UTF-8 octet ordering** (RFC 5849), not locale-sensitive string collation; Vitest coverage for **`compareOAuthParamUtf8Octets`** and **`sortParamPairs`**. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+
 ### Changed
 
 - **Workspace** — **Functions 0.31.1** and **Console 0.6.29**: Sonar/static-analysis cleanups (promise handling, accessibility, type unions, widget getter argument order, Express HTTP typings, shared sync/error helpers), expanded unit tests, **100%** Vitest line/statement coverage on Functions sources, **Console** test coverage meeting Vitest thresholds (including **`SettingsProfileIdentity`**), with **Codecov patch** target **99%**. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)** and **[apps/console/CHANGELOG.md](apps/console/CHANGELOG.md)**.

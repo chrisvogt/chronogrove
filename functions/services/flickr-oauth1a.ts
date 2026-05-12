@@ -34,14 +34,28 @@ function normalizeParamPairs(params: Record<string, string>): [string, string][]
   return Object.entries(params).map(([k, v]) => [k, v] as [string, string])
 }
 
-/** Lexicographic sort by key then value (OAuth 1.0). */
+/** RFC 5849 §3.4.1.3.2: ascending byte value ordering on UTF-8 octets. */
+export function compareOAuthParamUtf8Octets(a: string, b: string): number {
+  const ua = Buffer.from(a, 'utf8')
+  const ub = Buffer.from(b, 'utf8')
+  const n = Math.min(ua.length, ub.length)
+  for (let i = 0; i < n; i++) {
+    const d = ua[i]! - ub[i]!
+    if (d !== 0) {
+      return d
+    }
+  }
+  return ua.length - ub.length
+}
+
+/** Sort by name then value per OAuth 1.0a normalization (UTF-8 octet order). */
 export function sortParamPairs(pairs: [string, string][]): [string, string][] {
-  return [...pairs].sort((a, b) => {
-    const keyCmp = a[0].localeCompare(b[0])
+  return [...pairs].sort((x, y) => {
+    const keyCmp = compareOAuthParamUtf8Octets(x[0], y[0])
     if (keyCmp !== 0) {
       return keyCmp
     }
-    return a[1].localeCompare(b[1])
+    return compareOAuthParamUtf8Octets(x[1], y[1])
   })
 }
 

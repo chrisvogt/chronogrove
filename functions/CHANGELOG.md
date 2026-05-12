@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **OAuth 1.0a** — **`sortParamPairs`** / **`buildSignatureBaseString`** use **`compareOAuthParamUtf8Octets`** (UTF-8 octet order per RFC 5849 §3.4.1.3.2) instead of **`localeCompare`**, so HMAC-SHA1 base strings match the spec regardless of runtime locale. Discogs **`oauth1AuthorizationHeader`** sorts parameter names the same way.
+
+### Tests
+
+- **`flickr-oauth1a.test.ts`** — **`compareOAuthParamUtf8Octets`**: equality, empty vs non-empty, common-prefix length tie-break, first-byte order, ASCII vs multi-byte UTF-8; **`sortParamPairs`** Cyrillic vs Latin key order.
+
 ## [0.31.1] - 2026-05-12
 
 ### Changed

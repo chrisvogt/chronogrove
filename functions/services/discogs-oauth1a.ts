@@ -4,6 +4,7 @@ import { chronogroveHttpUserAgent } from '../config/chronogrove-http-user-agent.
 import {
   buildSignatureBaseString,
   buildSigningKey,
+  compareOAuthParamUtf8Octets,
   oauthPercentEncode,
   oauthTimestampSeconds,
   parseFormStyleBody,
@@ -25,7 +26,7 @@ export const DISCOGS_AUTHORIZE_URL = 'https://www.discogs.com/oauth/authorize'
  * (same as typical OAuth 1.0a consumers).
  */
 function oauth1AuthorizationHeader(params: Record<string, string>): string {
-  const keys = Object.keys(params).sort((a, b) => a.localeCompare(b))
+  const keys = Object.keys(params).sort(compareOAuthParamUtf8Octets)
   const parts = keys.map((k) => `${oauthPercentEncode(k)}="${oauthPercentEncode(params[k] ?? '')}"`)
   return `OAuth ${parts.join(', ')}`
 }
