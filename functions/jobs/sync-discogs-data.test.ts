@@ -74,7 +74,9 @@ vi.mock('../api/ai-summary/generate-discogs-summary.js', async (importOriginal) 
 import generateDiscogsSummary from '../api/ai-summary/generate-discogs-summary.js'
 import fetchDiscogsReleases from '../api/discogs/fetch-releases.js'
 import fetchReleasesBatch from '../api/discogs/fetch-releases-batch.js'
+import transformDiscogsRelease from '../transformers/transform-discogs-release.js'
 import { listStoredMedia, storeRemoteMedia } from '../services/media/media-service.js'
+import { loadDiscogsAuthForUser } from '../services/discogs-integration-credentials.js'
 
 describe('syncDiscogsData', () => {
   let documentStore: DocumentStore
@@ -516,5 +518,53 @@ describe('syncDiscogsData', () => {
       'users/chrisvogt/discogs/widget-content',
       expect.any(Object)
     )
+  })
+
+  it('uses OAuth Discogs username in the widget profile URL when linked', async () => {
+    vi.mocked(loadDiscogsAuthForUser).mockResolvedValueOnce({
+      consumerKey: 'ck',
+      consumerSecret: 'cs',
+      discogsUsername: 'oauthuser',
+      mode: 'oauth',
+      oauthToken: 't',
+      oauthTokenSecret: 'ts',
+    })
+    vi.mocked(fetchDiscogsReleases).mockResolvedValue({
+      pagination: { items: 0, page: 1, pages: 1, per_page: 0, urls: {} },
+      releases: [],
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    await syncDiscogsData(documentStore)
+
+    const widgetCall = vi.mocked(documentStore.setDocument).mock.calls.find((c) =>
+      c[0].endsWith('/widget-content'),
+    )
+    expect((widgetCall?.[1] as { profile?: { profileURL?: string } }).profile?.profileURL).toContain(
+      'oauthuser',
+    )
+  })
+
+  it('skips Discogs AI summary when compact summary input has no signals', async () => {
+    vi.mocked(transformDiscogsRelease).mockImplementationOnce(
+      () => ({ id: 1 }) as import('../types/discogs.js').DiscogsTransformedRelease,
+    )
+    vi.mocked(fetchDiscogsReleases).mockResolvedValue({
+      pagination: { items: 1, page: 1, pages: 1, per_page: 1, urls: {} },
+      releases: [
+        {
+          id: 1,
+          basic_information: {
+            thumb: 'https://example.com/thumb.jpg',
+            cover_image: 'https://example.com/cover.jpg',
+          },
+        },
+      ],
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    await syncDiscogsData(documentStore)
+
+    expect(vi.mocked(generateDiscogsSummary)).not.toHaveBeenCalled()
   })
 })

@@ -93,6 +93,39 @@ describe('buildDiscogsSummaryInput', () => {
     expect(input.recentReleases[0].artists).toContain('Valid')
     expect(input.recentReleases[0].formats).toContain('LP')
   })
+
+  it('handles null genre/style arrays, valid decades, and date sorting', () => {
+    const older: DiscogsTransformedRelease = {
+      basicInformation: {
+        artists: null as unknown as DiscogsTransformedRelease['basicInformation']['artists'],
+        formats: null as unknown as DiscogsTransformedRelease['basicInformation']['formats'],
+        genres: null as unknown as DiscogsTransformedRelease['basicInformation']['genres'],
+        styles: undefined,
+        title: 'Older',
+        year: 1995,
+      },
+      dateAdded: '2019-06-01T00:00:00.000Z',
+      id: 1,
+    }
+    const newer: DiscogsTransformedRelease = {
+      basicInformation: {
+        artists: [{ name: 'Z' }],
+        formats: [{ name: 'CD' }],
+        genres: ['Soul'],
+        styles: [],
+        title: 'Newer',
+        year: 2001,
+      },
+      dateAdded: '2020-01-01T00:00:00.000Z',
+      id: 2,
+    }
+    const input = buildDiscogsSummaryInput([older, newer], 2, undefined)
+    expect(input.decadeCounts['1990s']).toBe(1)
+    expect(input.decadeCounts['2000s']).toBe(1)
+    expect(input.genreCounts.Soul).toBe(1)
+    expect(input.recentReleases[0].title).toBe('Newer')
+    expect(input.recentReleases[1].title).toBe('Older')
+  })
 })
 
 describe('generateDiscogsSummary', () => {
@@ -115,6 +148,27 @@ describe('generateDiscogsSummary', () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch
+  })
+
+  it('parse-failure log omits tail for short assistant text', async () => {
+    const { logger } = await import('firebase-functions')
+    const shortText = 'plain short'
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => assistantJson(shortText),
+    })
+
+    await expect(generateDiscogsSummary(summaryInput)).rejects.toThrow()
+
+    const parseFailCall = (logger.error as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call) =>
+        call[0] ===
+        'Discogs AI summary: assistant text could not be parsed as JSON (see head/tail/indices).',
+    )
+    const payload = parseFailCall![1] as { tail?: string; charLength: number }
+    expect(payload.charLength).toBeLessThan(3100)
+    expect(payload.tail).toBeUndefined()
   })
 
   it('returns assistant HTML when the API responds with JSON', async () => {

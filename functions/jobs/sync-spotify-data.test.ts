@@ -417,4 +417,108 @@ describe('syncSpotifyData', () => {
       expect.any(Object)
     )
   })
+
+  it('omits followers metric and spotify.covers when there is no 300px art and zero followers', async () => {
+    const onProgress = vi.fn()
+    vi.mocked(generateSpotifySummary).mockResolvedValue('<p>AI</p>')
+    vi.mocked(getSpotifyAccessToken).mockResolvedValue({ accessToken: 'spotify-token' })
+    vi.mocked(getSpotifyUserProfile).mockResolvedValue({
+      display_name: 'No Followers',
+      external_urls: { spotify: 'https://open.spotify.com/user/x' },
+      followers: { total: 0 },
+      id: 'user123',
+      images: [{ url: '' }],
+    })
+    vi.mocked(getSpotifyTopTracks).mockResolvedValue([{ id: 't1', name: 'Track' }])
+    vi.mocked(getSpotifyPlaylists).mockResolvedValue({
+      total: 1,
+      items: [
+        {
+          id: 'p1',
+          name: 'No mosaic',
+          images: [{ url: 'https://i.scdn.co/image/x', height: 64, width: 64 }],
+        },
+      ],
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    const result = await syncSpotifyData(documentStore, { onProgress })
+
+    expect(result.result).toBe('SUCCESS')
+    const widget = (
+      vi.mocked(documentStore.setDocument).mock.calls.find(
+        (c) => c[0] === 'users/chrisvogt/spotify/widget-content',
+      )?.[1] as { metrics?: { id: string }[]; profile: { avatarURL?: unknown } }
+    )
+    expect(widget.metrics?.some((m) => m.id === 'followers-count')).toBe(false)
+    expect(widget.profile.avatarURL).toBeUndefined()
+    expect(onProgress.mock.calls.map((c) => c[0].phase)).toEqual([
+      'spotify.token',
+      'spotify.profile',
+      'spotify.top_tracks',
+      'spotify.playlists',
+      'spotify.ai',
+      'spotify.persist',
+    ])
+  })
+
+  it('selects mosaic art when width is 300 but height is not', async () => {
+    vi.mocked(getSpotifyAccessToken).mockResolvedValue({ accessToken: 'spotify-token' })
+    vi.mocked(getSpotifyUserProfile).mockResolvedValue({
+      display_name: 'Test',
+      external_urls: {},
+      followers: { total: 1 },
+      id: 'id',
+      images: [{ url: 'https://example.com/a.jpg' }],
+    })
+    vi.mocked(getSpotifyTopTracks).mockResolvedValue([])
+    vi.mocked(getSpotifyPlaylists).mockResolvedValue({
+      total: 1,
+      items: [
+        {
+          id: 'pl1',
+          name: 'Wide tile',
+          images: [{ url: 'https://mosaic.scdn.co/300/abc', height: 200, width: 300 }],
+        },
+      ],
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    const result = await syncSpotifyData(documentStore)
+    expect(result.result).toBe('SUCCESS')
+    expect(result.totalUploadedMediaCount).toBe(1)
+  })
+
+  it('forwards truncated playlist descriptions into the AI summary input', async () => {
+    const spy = vi.fn().mockResolvedValue('<p>ok</p>')
+    vi.mocked(generateSpotifySummary).mockImplementation(spy)
+    const longDesc = `z${'b'.repeat(260)}`
+    vi.mocked(getSpotifyAccessToken).mockResolvedValue({ accessToken: 'spotify-token' })
+    vi.mocked(getSpotifyUserProfile).mockResolvedValue({
+      display_name: 'Test',
+      external_urls: {},
+      followers: { total: 1 },
+      id: 'id',
+      images: [{ url: 'https://example.com/a.jpg' }],
+    })
+    vi.mocked(getSpotifyTopTracks).mockResolvedValue([{ id: 't1', name: 'N' }])
+    vi.mocked(getSpotifyPlaylists).mockResolvedValue({
+      total: 1,
+      items: [
+        {
+          description: longDesc,
+          id: 'pl1',
+          name: 'P',
+          images: [{ url: 'https://mosaic.scdn.co/300/h', height: 300, width: 300 }],
+        },
+      ],
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    await syncSpotifyData(documentStore)
+
+    const arg = spy.mock.calls[0]?.[0]
+    expect(arg?.playlists[0].description?.endsWith('…')).toBe(true)
+    expect(arg?.playlists[0].description?.length).toBeLessThanOrEqual(240)
+  })
 })

@@ -25,7 +25,8 @@ import { toStoredDateTime } from '../utils/time.js'
 import type { SyncJobExecutionOptions } from '../types/sync-pipeline.js'
 import generateSpotifySummary from '../api/ai-summary/generate-spotify-summary.js'
 
-const toSpotifySummaryInput = (content: SpotifyWidgetDocument): SpotifySummaryInput => {
+/** Exported for unit tests (Codecov patch branches on playlist/profile shaping). */
+export const toSpotifySummaryInput = (content: SpotifyWidgetDocument): SpotifySummaryInput => {
   const playlistsRaw = (content.collections?.playlists ?? []) as Array<{
     description?: string
     name?: string

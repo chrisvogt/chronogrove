@@ -47,6 +47,18 @@ describe('generateSpotifySummary', () => {
     expect(result).toBe('<p>Mock listening summary.</p>')
   })
 
+  it('renders empty profile placeholders in the prompt when names are missing', async () => {
+    await generateSpotifySummary({
+      ...mockData,
+      profile: {},
+    })
+    const init = mockFetch.mock.calls[0]?.[1] as FetchCallInit
+    const parsed = JSON.parse(init.body as string) as { messages?: { content?: string }[] }
+    const userMsg = parsed.messages?.[0]?.content ?? ''
+    expect(userMsg).toMatch(/Spotify profile display name:\s*/)
+    expect(userMsg).toContain('Profile URL (context only')
+  })
+
   it('throws when ANTHROPIC_API_KEY is not set', async () => {
     delete process.env.ANTHROPIC_API_KEY
 
@@ -123,6 +135,27 @@ describe('generateSpotifySummary', () => {
         head: assistantText,
       }),
     )
+  })
+
+  it('parse-failure log omits tail for short assistant text', async () => {
+    const { logger } = await import('firebase-functions')
+    const shortText = 'too short for tail slice'
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => assistantJson(shortText),
+    })
+
+    await expect(generateSpotifySummary(mockData)).rejects.toThrow()
+
+    const parseFailCall = (logger.error as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call) =>
+        call[0] ===
+        'Spotify AI summary: assistant text could not be parsed as JSON (see head/tail/indices).',
+    )
+    const payload = parseFailCall![1] as { tail?: string; charLength: number }
+    expect(payload.charLength).toBeLessThan(3100)
+    expect(payload.tail).toBeUndefined()
   })
 
   it('includes tail in parse-failure log when assistant text is longer than head plus tail', async () => {
