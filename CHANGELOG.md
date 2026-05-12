@@ -15,6 +15,8 @@ Package-specific changes:
 
 ### Changed
 
+- **Workspace** — **Functions 0.30.9**: Goodreads and Steam widget AI summaries use **first-person** prompts; Steam adds structured **Cloud Logging** on JSON parse failure (**`head`** / **`tail`** / indices). See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+
 - **Workspace** — **Functions 0.30.8**: Spotify **`me/top/tracks`** sync requests **`limit: 24`** instead of **12**, so the widget can surface more short-term top tracks after the next sync. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
 
 - **Workspace** — **Functions 0.30.7** and **Console 0.6.27**: Steam AI summary prompt slimmed so default Anthropic **`max_tokens`** no longer truncates JSON in production; console **`SettingsProfileIdentity`** clear-username test hardened for CI; functions release also includes CORS allowlist tweak for **`chrisvogt.me`**, emulator **`prestart` → `build`**, and AI summary **`jsonrepair`** / logging adjustments documented in **[functions/CHANGELOG.md](functions/CHANGELOG.md)**. See [functions/CHANGELOG.md](functions/CHANGELOG.md) and [apps/console/CHANGELOG.md](apps/console/CHANGELOG.md).
