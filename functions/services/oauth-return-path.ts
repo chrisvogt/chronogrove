@@ -16,7 +16,7 @@ export function validateReturnTo(raw: unknown): string | null {
 
   const hashIdx = s.indexOf('#')
   const beforeHash = hashIdx === -1 ? s : s.slice(0, hashIdx)
-  const pathPart = beforeHash.split('?')[0] ?? ''
+  const pathPart = beforeHash.split('?', 1)[0]
   if (pathPart.includes('..')) return null
 
   return s
@@ -46,12 +46,12 @@ export function withFlickrOAuthFlash(
     params.set('reason', reason)
   }
   const qs = params.toString()
-  const joined = qs ? `${pathname}?${qs}` : pathname
+  const joined = [pathname, qs].filter((segment) => segment.length > 0).join('?')
   return hash ? `${joined}#${hash}` : joined
 }
 
 /**
- * Append Discogs OAuth result query params for UI flash. Same rules as {@link withFlickrOAuthFlash}.
+ * Append GitHub OAuth result query params for UI flash. Same rules as {@link withFlickrOAuthFlash}.
  */
 export function withGitHubOAuthFlash(
   returnPath: string,
@@ -73,7 +73,7 @@ export function withGitHubOAuthFlash(
     params.set('reason', reason)
   }
   const qs = params.toString()
-  const joined = qs ? `${pathname}?${qs}` : pathname
+  const joined = [pathname, qs].filter((segment) => segment.length > 0).join('?')
   return hash ? `${joined}#${hash}` : joined
 }
 
@@ -97,6 +97,6 @@ export function withDiscogsOAuthFlash(
     params.set('reason', reason)
   }
   const qs = params.toString()
-  const joined = qs ? `${pathname}?${qs}` : pathname
+  const joined = [pathname, qs].filter((segment) => segment.length > 0).join('?')
   return hash ? `${joined}#${hash}` : joined
 }

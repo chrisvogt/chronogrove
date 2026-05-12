@@ -275,10 +275,8 @@ const processUpdatesWithMedia = async (
         })
       }
       
-      const bucket = uniqueBooksToFetch.get(key)
-      if (bucket) {
-        bucket.updates.push(update)
-      }
+      const bucket = uniqueBooksToFetch.get(key)!
+      bucket.updates.push(update)
     })
     
     // Fetch each unique book only once with concurrency control and delays to avoid rate limiting
@@ -307,52 +305,48 @@ const processUpdatesWithMedia = async (
 
         // If ISBN search fails or no ISBN, try searching by title + author
         if (!result?.book) {
-          if (book?.title) {
-            // Try to get author name - different structure for review vs userstatus updates
-            const authorName =
-              book.author?.name ?? book.author?.displayName ?? book.author?.sortName
+          const authorName =
+            book.author?.name ?? book.author?.displayName ?? book.author?.sortName
 
-            const titleForQuery =
-              simplifyTitleForGoogleBooksQuery(book.title) || book.title.trim()
-            const searchQuery = authorName
-              ? `intitle:${titleForQuery} inauthor:${authorName}`
-              : `intitle:${titleForQuery}`
+          const titleForQuery = simplifyTitleForGoogleBooksQuery(book.title) || book.title.trim()
+          const searchQuery = authorName
+            ? `intitle:${titleForQuery} inauthor:${authorName}`
+            : `intitle:${titleForQuery}`
 
-            try {
-              const googleBooksAPIKey = getGoogleBooksApiKey()
-              result = await fetchGoogleBooksOperationWithRetry(async () => {
-                const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
-                  searchParams: {
-                    q: searchQuery,
-                    key: googleBooksAPIKey,
-                    country: 'US',
-                  },
-                })
-                const parsed: unknown = JSON.parse(body)
-                const foundBook: GoogleBooksVolumeSubset | undefined =
-                  isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
+          try {
+            const googleBooksAPIKey = getGoogleBooksApiKey()
+            result = await fetchGoogleBooksOperationWithRetry(async () => {
+              const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
+                searchParams: {
+                  q: searchQuery,
+                  key: googleBooksAPIKey,
+                  country: 'US',
+                },
+              })
+              const parsed: unknown = JSON.parse(body)
+              const foundBook: GoogleBooksVolumeSubset | undefined =
+                isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
 
-                if (foundBook) {
-                  return {
-                    book: foundBook,
-                    rating: null,
-                  }
+              if (foundBook) {
+                return {
+                  book: foundBook,
+                  rating: null,
                 }
-                return null
-              }, logger)
-
-              if (result?.book) {
-                logger.info(
-                  `Found book by ${authorName ? 'title/author' : 'title'} for update: ${book.title}`,
-                )
               }
-            } catch (error) {
-              logger.error(
-                `Error fetching book by ${authorName ? 'title/author' : 'title'} for ${book.title} after retries:`,
-                error,
+              return null
+            }, logger)
+
+            if (result?.book) {
+              logger.info(
+                `Found book by ${authorName ? 'title/author' : 'title'} for update: ${book.title}`,
               )
-              result = null
             }
+          } catch (error) {
+            logger.error(
+              `Error fetching book by ${authorName ? 'title/author' : 'title'} for ${book.title} after retries:`,
+              error,
+            )
+            result = null
           }
         }
 
@@ -446,12 +440,9 @@ const processUpdatesWithMedia = async (
     const fetchedBooksByTitle = new Map<string, FetchedBookWithMetadata>()
     
     fetchedBooksWithMetadata.forEach(book => {
-      // Map by update object reference (most reliable for exact matches)
-      if (book.update) {
-        fetchedBooksByUpdate.set(book.update, book)
-      }
+      fetchedBooksByUpdate.set(book.update, book)
       // Also map by update link (unique identifier)
-      if (book.update?.link) {
+      if (book.update.link) {
         fetchedBooksByLink.set(book.update.link, book)
       }
       // Map by ISBN from Google Books response
@@ -461,8 +452,9 @@ const processUpdatesWithMedia = async (
         fetchedBooksByISBN.set(isbnStr.replace(/-/g, ''), book)
       }
       // Also map by the update's original ISBN (in case it differs from Google Books)
-      if (book.update?.book) {
-        const updateISBN = getIsbnFromGoodreadsBookFields(book.update.book)
+      const updateBook = book.update.book
+      if (updateBook) {
+        const updateISBN = getIsbnFromGoodreadsBookFields(updateBook)
         if (updateISBN && String(updateISBN) !== String(book.isbn)) {
           fetchedBooksByISBN.set(String(updateISBN), book)
           fetchedBooksByISBN.set(String(updateISBN).replace(/-/g, ''), book)
