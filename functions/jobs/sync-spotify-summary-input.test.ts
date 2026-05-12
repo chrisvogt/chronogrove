@@ -64,4 +64,54 @@ describe('toSpotifySummaryInput', () => {
     expect(input.profile.displayName).toBeUndefined()
     expect(input.profile.profileURL).toBeUndefined()
   })
+
+  it('does not truncate description at exactly 240 chars, but does at 241', () => {
+    const d240 = 'y'.repeat(240)
+    const d241 = `z${'y'.repeat(240)}`
+    const doc = {
+      collections: {
+        playlists: [
+          { description: d240, name: 'A', tracks: { total: 1 } },
+          { description: d241, name: 'B', tracks: { total: 2 } },
+        ],
+      },
+    } as SpotifyWidgetDocument
+    const input = toSpotifySummaryInput(doc)
+    expect(input.playlists[0].description).toBe(d240)
+    expect(input.playlists[0].description?.endsWith('…')).toBe(false)
+    expect(input.playlists[1].description).toBe(`${d241.slice(0, 239)}…`)
+  })
+
+  it('passes through non-string description and preserves undefined public and tracks', () => {
+    const doc: SpotifyWidgetDocument = {
+      collections: {
+        playlists: [
+          {
+            description: 99 as unknown as string,
+            name: 'P',
+            public: undefined,
+            tracks: undefined,
+          },
+          { name: 'Q', tracks: {} },
+        ],
+      },
+      profile: {},
+    } as SpotifyWidgetDocument
+    const input = toSpotifySummaryInput(doc)
+    expect(input.playlists[0].description).toBe(99)
+    expect(input.playlists[0].public).toBeUndefined()
+    expect(input.playlists[0].trackCount).toBeUndefined()
+    expect(input.playlists[1].trackCount).toBeUndefined()
+  })
+
+  it('uses empty playlists when collections or playlists are absent', () => {
+    const noCollections = { profile: { displayName: 'solo' } } as SpotifyWidgetDocument
+    expect(toSpotifySummaryInput(noCollections).playlists).toEqual([])
+
+    const emptyCollections = {
+      collections: {},
+      profile: {},
+    } as SpotifyWidgetDocument
+    expect(toSpotifySummaryInput(emptyCollections).playlists).toEqual([])
+  })
 })

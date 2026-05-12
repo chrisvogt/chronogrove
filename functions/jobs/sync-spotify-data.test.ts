@@ -489,6 +489,33 @@ describe('syncSpotifyData', () => {
     expect(result.totalUploadedMediaCount).toBe(1)
   })
 
+  it('selects mosaic art when height is 300 but width is not', async () => {
+    vi.mocked(getSpotifyAccessToken).mockResolvedValue({ accessToken: 'spotify-token' })
+    vi.mocked(getSpotifyUserProfile).mockResolvedValue({
+      display_name: 'Test',
+      external_urls: {},
+      followers: { total: 1 },
+      id: 'id',
+      images: [{ url: 'https://example.com/a.jpg' }],
+    })
+    vi.mocked(getSpotifyTopTracks).mockResolvedValue([])
+    vi.mocked(getSpotifyPlaylists).mockResolvedValue({
+      total: 1,
+      items: [
+        {
+          id: 'pl2',
+          name: 'Tall tile',
+          images: [{ url: 'https://mosaic.scdn.co/300/def', height: 300, width: 64 }],
+        },
+      ],
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    const result = await syncSpotifyData(documentStore)
+    expect(result.result).toBe('SUCCESS')
+    expect(result.totalUploadedMediaCount).toBe(1)
+  })
+
   it('forwards truncated playlist descriptions into the AI summary input', async () => {
     const spy = vi.fn().mockResolvedValue('<p>ok</p>')
     vi.mocked(generateSpotifySummary).mockImplementation(spy)

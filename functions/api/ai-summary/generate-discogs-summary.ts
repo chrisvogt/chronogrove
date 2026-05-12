@@ -55,6 +55,8 @@ const bump = (counts: Record<string, number>, key: string): void => {
   counts[key] = (counts[key] ?? 0) + 1
 }
 
+export { bump }
+
 const namesFromArtists = (artists: unknown): string[] => {
   if (!Array.isArray(artists)) return []
   return artists

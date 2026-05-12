@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import generateDiscogsSummary, { buildDiscogsSummaryInput } from './generate-discogs-summary.js'
+import generateDiscogsSummary, { buildDiscogsSummaryInput, bump } from './generate-discogs-summary.js'
 import type { DiscogsTransformedRelease } from '../../types/discogs.js'
 
 type FetchCallInit = { body?: string }
@@ -30,6 +30,13 @@ const sampleRelease = (i: number): DiscogsTransformedRelease => ({
 })
 
 describe('buildDiscogsSummaryInput', () => {
+  it('ignores empty rollup keys from bump()', () => {
+    const counts: Record<string, number> = {}
+    bump(counts, '')
+    expect(counts).toEqual({})
+    bump(counts, 'k')
+    expect(counts.k).toBe(1)
+  })
   it('aggregates genres and sorts recent releases', () => {
     const input = buildDiscogsSummaryInput([sampleRelease(1), sampleRelease(2)], 2, 'https://discogs.example/u')
     expect(input.collectionTotal).toBe(2)
@@ -126,6 +133,42 @@ describe('buildDiscogsSummaryInput', () => {
     expect(input.recentReleases[0].title).toBe('Newer')
     expect(input.recentReleases[1].title).toBe('Older')
   })
+
+  it('treats non-string dateAdded and maps artist/format names that are not strings', () => {
+    const row: DiscogsTransformedRelease = {
+      basicInformation: {
+        artists: [{ name: 42 as unknown as string }],
+        formats: [{ name: null as unknown as string }],
+        genres: ['X'],
+        title: 'T',
+        year: 2010,
+      },
+      dateAdded: 2020 as unknown as string,
+      id: 1,
+    }
+    const input = buildDiscogsSummaryInput([row], 1, 'https://u')
+    expect(input.recentReleases[0].artists).toEqual([])
+    expect(input.recentReleases[0].formats).toEqual([])
+  })
+
+  it('uses parseDateAdded fallback for undefined and invalid date strings', () => {
+    const a: DiscogsTransformedRelease = {
+      basicInformation: { title: 'A', year: 2000 },
+      id: 1,
+    }
+    const b: DiscogsTransformedRelease = {
+      basicInformation: { title: 'B', year: 2000 },
+      dateAdded: undefined,
+      id: 2,
+    }
+    const c: DiscogsTransformedRelease = {
+      basicInformation: { title: 'C', year: 2000 },
+      dateAdded: 'not-parseable',
+      id: 3,
+    }
+    const input = buildDiscogsSummaryInput([a, b, c], 3, undefined)
+    expect(input.recentReleases.map((r) => r.title)).toEqual(['A', 'B', 'C'])
+  })
 })
 
 describe('generateDiscogsSummary', () => {
@@ -169,6 +212,32 @@ describe('generateDiscogsSummary', () => {
     const payload = parseFailCall![1] as { tail?: string; charLength: number }
     expect(payload.charLength).toBeLessThan(3100)
     expect(payload.tail).toBeUndefined()
+  })
+
+  it('embeds profileURL in the prompt when provided', async () => {
+    const input = buildDiscogsSummaryInput([sampleRelease(1)], 1, 'https://discogs.example/user/me')
+    await generateDiscogsSummary(input)
+    const init = mockFetch.mock.calls[0]?.[1] as FetchCallInit
+    const parsed = JSON.parse(init.body ?? '{}') as { messages?: { content?: string }[] }
+    expect(parsed.messages?.[0]?.content).toContain('https://discogs.example/user/me')
+  })
+
+  it('uses empty collection URL in the prompt when profileURL is undefined', async () => {
+    const input = buildDiscogsSummaryInput([sampleRelease(1)], 1, undefined)
+    await generateDiscogsSummary(input)
+    const init = mockFetch.mock.calls[0]?.[1] as FetchCallInit
+    const parsed = JSON.parse(init.body ?? '{}') as { messages?: { content?: string }[] }
+    const content = parsed.messages?.[0]?.content ?? ''
+    expect(content).toContain('Collection URL (context only): ')
+    expect(content).not.toMatch(/Collection URL \(context only\):\s*https?:\/\//)
+  })
+
+  it('uses Unknown error when JSON.stringify fails in the error wrapper', async () => {
+    mockFetch.mockRejectedValueOnce({ tag: 1n })
+
+    await expect(generateDiscogsSummary(summaryInput)).rejects.toThrow(
+      'Failed to generate AI summary: Unknown error',
+    )
   })
 
   it('returns assistant HTML when the API responds with JSON', async () => {
