@@ -79,6 +79,8 @@ export function SettingsUsernameBlock({
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const usernameDraftRef = useRef(usernameDraft)
+  usernameDraftRef.current = usernameDraft
 
   useEffect(() => {
     setUsernameDraft(saved)
@@ -90,10 +92,12 @@ export function SettingsUsernameBlock({
   const checkUsername = useCallback(
     async (value: string) => {
       if (!value || !ONBOARDING_USERNAME_PATTERN.test(value)) {
+        if (value !== usernameDraftRef.current) return
         setUsernameStatus(value.length > 0 ? 'invalid' : 'idle')
         return
       }
 
+      if (value !== usernameDraftRef.current) return
       setUsernameStatus('checking')
       try {
         const headers: Record<string, string> = {}
@@ -108,8 +112,10 @@ export function SettingsUsernameBlock({
         )
         if (!res.ok) throw new Error('Check failed')
         const data = (await res.json()) as { available?: boolean }
+        if (value !== usernameDraftRef.current) return
         setUsernameStatus(data.available ? 'available' : 'taken')
       } catch {
+        if (value !== usernameDraftRef.current) return
         setUsernameStatus('error')
       }
     },
