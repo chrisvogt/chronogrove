@@ -148,7 +148,10 @@ async function fetchGoogleBookByTitleFallback(
   const maxRetries = 3
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await tryFetchGoogleBookByTitleOnce(book, searchQuery)
+      const result = await tryFetchGoogleBookByTitleOnce(book, searchQuery)
+      if (result !== null) {
+        return result
+      }
     } catch (error: unknown) {
       const next = await handleGoogleBooksTitleSearchFailure(error, { attempt, maxRetries, book })
       if (next === 'retry') {
