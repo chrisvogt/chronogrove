@@ -15,6 +15,8 @@ Package-specific changes:
 
 ### Changed
 
+- **Workspace** — **Functions 0.31.3**: CSRF salt prefix generated with **`crypto.randomBytes`** and **hex** encoding (replaces a custom alphanumeric alphabet; avoids **Sonar** **S6418** hard-coded secret false positives). See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+
 - **Workspace** — **Functions 0.31.2** and **Console 0.6.30**: Sonar-driven refactors (cognitive complexity, **`void`**, redundant types/casts), **`parseSessionBearerAuth`** for **`POST /api/auth/session`**, **OAuth 1.0a** UTF-8 parameter ordering (**`compareOAuthParamUtf8Octets`**), **Vitest** **100%** Functions line/statement coverage. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)** and **[apps/console/CHANGELOG.md](apps/console/CHANGELOG.md)**.
 
 - **Workspace** — **Functions 0.31.1** and **Console 0.6.29**: Sonar/static-analysis cleanups (promise handling, accessibility, type unions, widget getter argument order, Express HTTP typings, shared sync/error helpers), expanded unit tests, **100%** Vitest line/statement coverage on Functions sources, **Console** test coverage meeting Vitest thresholds (including **`SettingsProfileIdentity`**), with **Codecov patch** target **99%**. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)** and **[apps/console/CHANGELOG.md](apps/console/CHANGELOG.md)**.
