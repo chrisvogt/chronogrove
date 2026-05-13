@@ -13,9 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CSRF** — Cookie-backed CSRF salt prefix uses **`crypto.randomBytes(TOKEN_SALT_RANDOM_BYTES).toString('hex')`** instead of drawing characters from a fixed alphanumeric alphabet. This matches common Node patterns, preserves a **10**-character salt prefix for **`tokenize`** / **`validate`**, and avoids static-analysis false positives for hard-coded secrets (**Sonar** **S6418**). Binding strength remains from the **`HttpOnly`** secret cookie and **HMAC-SHA256** over the salt.
 
+- **Quality (Sonar)** — **Discogs** / **Instagram** sync jobs pass explicit **`reduce`** callbacks (**`(acc, release) => mediaReducer(acc, release)`**) so reducers are not passed by reference. Vitest avoids predictable world-writable **`/tmp`** paths for disk-backed mocks (**`tmpdir`** / **`mkdtemp`** / unique **`join`** paths).
+
 ### Tests
 
 - **`cookie-backed-csrf.test.ts`** — Existing **create** / **validate** round-trip coverage unchanged.
+
+- **Disk temp paths (Vitest)** — Suites avoid literal **`/tmp/...`**: **`os.tmpdir()`** with **`fs.mkdtempSync`**, **`path.join(tmpdir(), …)`**, or **`vi.hoisted`** + **`node:*`** **`require`** when mock factories run before ESM imports (**Goodreads** fetch, **Express** app wiring, **backend-config** / **runtime-config** / **media-store** / **setup-env-vars**, provider sync job mocks); **`afterAll`** **`rmSync`** where **`LocalDiskMediaStore`** writes under a temp root.
 
 ## [0.31.2] - 2026-05-12
 

@@ -15,7 +15,9 @@ Package-specific changes:
 
 ### Changed
 
-- **Workspace** — **Functions 0.31.3**: CSRF salt prefix generated with **`crypto.randomBytes`** and **hex** encoding (replaces a custom alphanumeric alphabet; avoids **Sonar** **S6418** hard-coded secret false positives). See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+- **Workspace** — **Functions 0.31.3**: CSRF salt prefix uses **`crypto.randomBytes`** (**hex**); Vitest disk paths use **`os.tmpdir`** / **`mkdtemp`** instead of literal **`/tmp`**; **Discogs** / **Instagram** sync **`reduce`** callbacks wrap **`mediaReducer`**. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+
+- **Workspace** — **Console 0.6.31**: **`SonoranDuskScene`** mulberry32 uses **`Math.trunc`**-based signed **32-bit** wrap (**`coerceSignedInt32`**); **`SettingsProfileIdentity`** **`swallowSettingsProfileFloatingPromiseRejection`** uses **`void reason`** for an intentional no-op catch handler. See **[apps/console/CHANGELOG.md](apps/console/CHANGELOG.md)**.
 
 - **Workspace** — **Functions 0.31.2** and **Console 0.6.30**: Sonar-driven refactors (cognitive complexity, **`void`**, redundant types/casts), **`parseSessionBearerAuth`** for **`POST /api/auth/session`**, **OAuth 1.0a** UTF-8 parameter ordering (**`compareOAuthParamUtf8Octets`**), **Vitest** **100%** Functions line/statement coverage. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)** and **[apps/console/CHANGELOG.md](apps/console/CHANGELOG.md)**.
 
