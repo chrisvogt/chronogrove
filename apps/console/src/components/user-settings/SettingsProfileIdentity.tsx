@@ -97,7 +97,6 @@ export function SettingsUsernameBlock({
         return
       }
 
-      if (value !== usernameDraftRef.current) return
       setUsernameStatus('checking')
       try {
         const headers: Record<string, string> = {}
