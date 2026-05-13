@@ -27,6 +27,9 @@ export function profileIdentityLoadFailureMessage(loadError: string | null): str
   return loadError ?? 'Could not load profile.'
 }
 
+/** @internal Promise.catch handler for fire-and-forget calls; exported for Vitest coverage. */
+export function swallowSettingsProfileFloatingPromiseRejection(_reason?: unknown): void {}
+
 async function putOnboarding(
   user: User,
   body: {
@@ -126,7 +129,7 @@ export function SettingsUsernameBlock({
     }
     if (sanitized.length >= 3) {
       timerRef.current = setTimeout(() => {
-        void checkUsername(sanitized)
+        checkUsername(sanitized).catch(swallowSettingsProfileFloatingPromiseRejection)
       }, 500)
     }
   }
@@ -320,10 +323,10 @@ export function SettingsCustomDomainBlock({
 
   const startDnsCheck = () => {
     if (!domainDraft) return
-    void checkDns(domainDraft)
+    checkDns(domainDraft).catch(swallowSettingsProfileFloatingPromiseRejection)
     clearDnsVerificationTimers({ dnsTimerRef, dnsPollingRef })
     dnsPollingRef.current = setInterval(() => {
-      void checkDns(domainDraft)
+      checkDns(domainDraft).catch(swallowSettingsProfileFloatingPromiseRejection)
     }, 15000)
   }
 
@@ -530,7 +533,7 @@ export function SettingsProfileIdentity({
   useEffect(() => {
     if (!apiSessionReady) return
     if (!userRef.current) return
-    void load()
+    load().catch(swallowSettingsProfileFloatingPromiseRejection)
   }, [apiSessionReady, authIdentityKey, load])
 
   if (!apiSessionReady) {

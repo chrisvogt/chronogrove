@@ -2,8 +2,6 @@
  * Instagram Graph API fragments used in sync, media download, and widget transforms.
  */
 
-export type InstagramMediaType = string
-
 export interface InstagramGraphChild {
   id: string
   alt_text?: string
@@ -13,7 +11,7 @@ export interface InstagramGraphChild {
 
 export interface InstagramGraphMediaItem {
   id: string
-  media_type?: InstagramMediaType
+  media_type?: string
   media_url?: string
   thumbnail_url?: string
   alt_text?: string
@@ -66,7 +64,7 @@ export interface InstagramTransformedMedia {
   commentsCounts?: number
   id: string
   likeCount?: number
-  mediaType?: InstagramMediaType
+  mediaType?: string
   mediaURL?: string
   permalink?: string
   shortcode?: string

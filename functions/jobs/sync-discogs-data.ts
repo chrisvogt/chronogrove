@@ -109,6 +109,91 @@ function logDiscogsFirestorePayloadSize(
   )
 }
 
+function buildDiscogsTitleByReleaseId(
+  enhancedReleases: DiscogsEnhancedRelease[],
+): Map<string, string> {
+  const titleByReleaseId = new Map<string, string>()
+  for (const raw of enhancedReleases) {
+    const rid = raw.id != null ? String(raw.id) : ''
+    if (!rid) continue
+    const t = raw.basic_information?.title
+    titleByReleaseId.set(
+      rid,
+      typeof t === 'string' && t.trim().length > 0 ? t.trim() : `Release ${rid}`,
+    )
+  }
+  return titleByReleaseId
+}
+
+async function maybeAttachDiscogsAiSummary(
+  logger: ReturnType<typeof getLogger>,
+  transformedReleases: ReturnType<typeof transformDiscogsRelease>[],
+  paginationItems: number,
+  updatedWidgetContent: DiscogsWidgetDocument,
+  onProgress: SyncJobExecutionOptions['onProgress'],
+): Promise<string | null> {
+  if (transformedReleases.length === 0) {
+    return null
+  }
+  try {
+    onProgress?.({
+      phase: 'discogs.ai',
+      message: 'Generating Discogs collection summary (AI).',
+    })
+    const summaryInput = buildDiscogsSummaryInput(
+      transformedReleases,
+      paginationItems,
+      updatedWidgetContent.profile?.profileURL,
+    )
+    const hasTextSignal =
+      summaryInput.recentReleases.length > 0 ||
+      Object.keys(summaryInput.genreCounts).length > 0 ||
+      Object.keys(summaryInput.styleCounts).length > 0 ||
+      Object.keys(summaryInput.decadeCounts).length > 0
+    if (!hasTextSignal) {
+      return null
+    }
+    const aiSummary = await generateDiscogsSummary(summaryInput)
+    updatedWidgetContent.aiSummary = aiSummary
+    return aiSummary
+  } catch (error: unknown) {
+    logger.error('Failed to generate Discogs AI summary.', error)
+    return null
+  }
+}
+
+async function downloadDiscogsArtworkBatch(
+  logger: ReturnType<typeof getLogger>,
+  mediaToDownloadTyped: DiscogsMediaDownloadTask[],
+  titleByReleaseId: Map<string, string>,
+  onProgress: SyncJobExecutionOptions['onProgress'],
+): Promise<{ fileName?: string }[]> {
+  try {
+    return await pMap(
+      mediaToDownloadTyped,
+      async (item) => {
+        const releaseKey = String(item.id).replace(/_thumb$|_cover$/, '')
+        const album = truncateLabel(titleByReleaseId.get(releaseKey) ?? `release ${releaseKey}`)
+        const isThumb = String(item.id).endsWith('_thumb')
+        onProgress?.({
+          phase: 'discogs.artwork',
+          message: isThumb
+            ? `Downloading vinyl thumbnail for “${album}”.`
+            : `Downloading vinyl cover image for “${album}”.`,
+        })
+        return storeRemoteMedia(item)
+      },
+      {
+        concurrency: 10,
+        stopOnError: false,
+      },
+    )
+  } catch (error) {
+    logger.error('Something went wrong downloading media files', error)
+    return []
+  }
+}
+
 const syncDiscogsData = async (
   documentStore: DocumentStore,
   options: SyncJobExecutionOptions = {}
@@ -194,31 +279,13 @@ const syncDiscogsData = async (
       }
     }
 
-    let aiSummary: string | null = null
-    if (transformedReleases.length > 0) {
-      try {
-        onProgress?.({
-          phase: 'discogs.ai',
-          message: 'Generating Discogs collection summary (AI).',
-        })
-        const summaryInput = buildDiscogsSummaryInput(
-          transformedReleases,
-          pagination.items,
-          updatedWidgetContent.profile?.profileURL,
-        )
-        const hasTextSignal =
-          summaryInput.recentReleases.length > 0 ||
-          Object.keys(summaryInput.genreCounts).length > 0 ||
-          Object.keys(summaryInput.styleCounts).length > 0 ||
-          Object.keys(summaryInput.decadeCounts).length > 0
-        if (hasTextSignal) {
-          aiSummary = await generateDiscogsSummary(summaryInput)
-          updatedWidgetContent.aiSummary = aiSummary
-        }
-      } catch (error: unknown) {
-        logger.error('Failed to generate Discogs AI summary.', error)
-      }
-    }
+    const aiSummary = await maybeAttachDiscogsAiSummary(
+      logger,
+      transformedReleases,
+      pagination.items,
+      updatedWidgetContent,
+      onProgress,
+    )
 
     onProgress?.({
       phase: 'discogs.save_widget',
@@ -239,16 +306,7 @@ const syncDiscogsData = async (
     await saveWidgetContent()
     await saveAISummary()
 
-    const titleByReleaseId = new Map<string, string>()
-    for (const raw of enhancedReleases) {
-      const rid = raw.id != null ? String(raw.id) : ''
-      if (!rid) continue
-      const t = raw.basic_information?.title
-      titleByReleaseId.set(
-        rid,
-        typeof t === 'string' && t.trim().length > 0 ? t.trim() : `Release ${rid}`,
-      )
-    }
+    const titleByReleaseId = buildDiscogsTitleByReleaseId(enhancedReleases)
 
     const mediaToDownloadTyped: DiscogsMediaDownloadTask[] = mediaToDownload
     if (!mediaToDownloadTyped.length) {
@@ -261,31 +319,12 @@ const syncDiscogsData = async (
       }
     }
 
-    let result: { fileName?: string }[]
-    try {
-      result = await pMap(
-        mediaToDownloadTyped,
-        async (item) => {
-          const releaseKey = String(item.id).replace(/_thumb$|_cover$/, '')
-          const album = truncateLabel(titleByReleaseId.get(releaseKey) ?? `release ${releaseKey}`)
-          const isThumb = String(item.id).endsWith('_thumb')
-          onProgress?.({
-            phase: 'discogs.artwork',
-            message: isThumb
-              ? `Downloading vinyl thumbnail for “${album}”.`
-              : `Downloading vinyl cover image for “${album}”.`,
-          })
-          return storeRemoteMedia(item)
-        },
-        {
-          concurrency: 10,
-          stopOnError: false,
-        }
-      )
-    } catch (error) {
-      logger.error('Something went wrong downloading media files', error)
-      result = []
-    }
+    const result = await downloadDiscogsArtworkBatch(
+      logger,
+      mediaToDownloadTyped,
+      titleByReleaseId,
+      onProgress,
+    )
 
     logger.info('Discogs sync finished successfully.', {
       mediaStore: describeMediaStore(),

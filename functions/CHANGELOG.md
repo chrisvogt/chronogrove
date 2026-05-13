@@ -7,13 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.2] - 2026-05-12
+
 ### Fixed
 
 - **OAuth 1.0a** — **`sortParamPairs`** / **`buildSignatureBaseString`** use **`compareOAuthParamUtf8Octets`** (UTF-8 octet order per RFC 5849 §3.4.1.3.2) instead of **`localeCompare`**, so HMAC-SHA1 base strings match the spec regardless of runtime locale. Discogs **`oauth1AuthorizationHeader`** sorts parameter names the same way.
 
+### Changed
+
+- **Quality (Sonar)** — **Goodreads**: lower cognitive complexity in **`fetch-recently-read-books`** (title fallback) and **`sync-goodreads-data`** (Google Books fetch for updates); **Discogs** sync extracts **`maybeAttachDiscogsAiSummary`**, **`buildDiscogsTitleByReleaseId`**, **`downloadDiscogsArtworkBatch`**; **DNS** **`hostnameCnameChainsTo`** uses **`resolveCnameHop`** / **`CnameHopOutcome`**; **rate limiter** avoids redundant **`Map`** casts; **`POST /api/auth/session`** parses Bearer once via **`parseSessionBearerAuth`**; **GitHub** token refresh takes a narrowed **`refreshToken`** string; remove redundant casts/union members (**`firestore-document-store`**, **`instagram`**, **`widget-content`**, **`github-integration-credentials`**).
+
 ### Tests
 
 - **`flickr-oauth1a.test.ts`** — **`compareOAuthParamUtf8Octets`**: equality, empty vs non-empty, common-prefix length tie-break, first-byte order, ASCII vs multi-byte UTF-8; **`sortParamPairs`** Cyrillic vs Latin key order.
+- **Vitest** — **100%** line/statement coverage on Functions sources; branch coverage within thresholds (Codecov **patch** target **99%**).
 
 ## [0.31.1] - 2026-05-12
 

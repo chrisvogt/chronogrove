@@ -141,6 +141,104 @@ function getIsbnFromGoodreadsBookFields(
   return getXmlTextOrNull(book.isbn13) ?? getXmlTextOrNull(book.isbn)
 }
 
+type GoodreadsUniqueBookBucket = {
+  update: GoodreadsUpdate
+  isbn: string | null
+  book: GoodreadsReviewBook | GoodreadsUserStatusBook
+  updates: GoodreadsUpdate[]
+}
+
+async function fetchGoodreadsGoogleBookByTitleSearch(
+  book: GoodreadsReviewBook | GoodreadsUserStatusBook,
+  logger: ReturnType<typeof getLogger>,
+): Promise<GoogleBooksFetchByIsbnResult | null> {
+  const authorName =
+    book.author?.name ?? book.author?.displayName ?? book.author?.sortName
+
+  const titleForQuery = simplifyTitleForGoogleBooksQuery(book.title) || book.title.trim()
+  const searchQuery = authorName
+    ? `intitle:${titleForQuery} inauthor:${authorName}`
+    : `intitle:${titleForQuery}`
+
+  try {
+    const googleBooksAPIKey = getGoogleBooksApiKey()
+    const result = await fetchGoogleBooksOperationWithRetry(async () => {
+      const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
+        searchParams: {
+          q: searchQuery,
+          key: googleBooksAPIKey,
+          country: 'US',
+        },
+      })
+      const parsed: unknown = JSON.parse(body)
+      const foundBook: GoogleBooksVolumeSubset | undefined =
+        isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
+
+      if (foundBook) {
+        return {
+          book: foundBook,
+          rating: null,
+        }
+      }
+      return null
+    }, logger)
+
+    if (result?.book) {
+      logger.info(
+        `Found book by ${authorName ? 'title/author' : 'title'} for update: ${book.title}`,
+      )
+    }
+    return result
+  } catch (error) {
+    logger.error(
+      `Error fetching book by ${authorName ? 'title/author' : 'title'} for ${book.title} after retries:`,
+      error,
+    )
+    return null
+  }
+}
+
+async function fetchGoogleBooksForGoodreadsUniqueBucket(
+  bucket: GoodreadsUniqueBookBucket,
+  index: number,
+  logger: ReturnType<typeof getLogger>,
+): Promise<{
+  googleBookResult: GoogleBooksFetchByIsbnResult | null
+  update: GoodreadsUpdate
+  updates: GoodreadsUpdate[]
+  isbn: string | null
+}> {
+  const { update, isbn, book, updates } = bucket
+  if (index > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+
+  let result: GoogleBooksFetchByIsbnResult | null = null
+
+  if (isbn) {
+    try {
+      result = await fetchGoogleBooksOperationWithRetry(
+        () => fetchBookFromGoogle({ isbn }),
+        logger,
+      )
+    } catch (error) {
+      logger.error(`Error fetching book by ISBN ${isbn} after retries:`, error)
+      result = null
+    }
+  }
+
+  if (!result?.book) {
+    result = await fetchGoodreadsGoogleBookByTitleSearch(book, logger)
+  }
+
+  return {
+    googleBookResult: result,
+    update,
+    updates,
+    isbn,
+  }
+}
+
 const toBookMediaDestinationPath = (id: string) => `books/${id}-thumbnail.jpg`
 
 const transformBookData = (
@@ -251,113 +349,30 @@ const processUpdatesWithMedia = async (
       message: 'Fetching book data from Google Books.',
     })
     // Create a map of unique books to fetch (keyed by ISBN or title)
-    const uniqueBooksToFetch = new Map<
-      string,
-      {
-        update: GoodreadsUpdate
-        isbn: string | null
-        book: GoodreadsReviewBook | GoodreadsUserStatusBook
-        updates: GoodreadsUpdate[]
-      }
-    >()
+    const uniqueBooksToFetch = new Map<string, GoodreadsUniqueBookBucket>()
     updatesNeedingBooks.forEach(({ update, isbn }) => {
       const book = update.book
       if (!book?.title) return
-      
-      // Use ISBN as key if available, otherwise use title
+
       const key = isbn ? `isbn:${isbn}` : `title:${book.title.toLowerCase().trim()}`
-      
-      if (!uniqueBooksToFetch.has(key)) {
-        uniqueBooksToFetch.set(key, {
-          update, // Store first update as reference
+
+      let bucket = uniqueBooksToFetch.get(key)
+      if (!bucket) {
+        bucket = {
+          update,
           isbn,
           book,
-          updates: [] // Store all updates that need this book
-        })
+          updates: [],
+        }
+        uniqueBooksToFetch.set(key, bucket)
       }
-      
-      const bucket = uniqueBooksToFetch.get(key)!
       bucket.updates.push(update)
     })
-    
+
     // Fetch each unique book only once with concurrency control and delays to avoid rate limiting
     const fetchedBookResults = await pMap(
       Array.from(uniqueBooksToFetch.values()),
-      async ({ update, isbn, book, updates }, index) => {
-        // Add a small delay between requests to avoid rate limiting (except for first request)
-        if (index > 0) {
-          await new Promise(resolve => setTimeout(resolve, 200)) // 200ms delay between requests
-        }
-        
-        let result: GoogleBooksFetchByIsbnResult | null = null
-
-        // Try fetching by ISBN first (if available)
-        if (isbn) {
-          try {
-            result = await fetchGoogleBooksOperationWithRetry(
-              () => fetchBookFromGoogle({ isbn }),
-              logger,
-            )
-          } catch (error) {
-            logger.error(`Error fetching book by ISBN ${isbn} after retries:`, error)
-            result = null
-          }
-        }
-
-        // If ISBN search fails or no ISBN, try searching by title + author
-        if (!result?.book) {
-          const authorName =
-            book.author?.name ?? book.author?.displayName ?? book.author?.sortName
-
-          const titleForQuery = simplifyTitleForGoogleBooksQuery(book.title) || book.title.trim()
-          const searchQuery = authorName
-            ? `intitle:${titleForQuery} inauthor:${authorName}`
-            : `intitle:${titleForQuery}`
-
-          try {
-            const googleBooksAPIKey = getGoogleBooksApiKey()
-            result = await fetchGoogleBooksOperationWithRetry(async () => {
-              const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
-                searchParams: {
-                  q: searchQuery,
-                  key: googleBooksAPIKey,
-                  country: 'US',
-                },
-              })
-              const parsed: unknown = JSON.parse(body)
-              const foundBook: GoogleBooksVolumeSubset | undefined =
-                isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
-
-              if (foundBook) {
-                return {
-                  book: foundBook,
-                  rating: null,
-                }
-              }
-              return null
-            }, logger)
-
-            if (result?.book) {
-              logger.info(
-                `Found book by ${authorName ? 'title/author' : 'title'} for update: ${book.title}`,
-              )
-            }
-          } catch (error) {
-            logger.error(
-              `Error fetching book by ${authorName ? 'title/author' : 'title'} for ${book.title} after retries:`,
-              error,
-            )
-            result = null
-          }
-        }
-
-        return {
-          googleBookResult: result,
-          update, // Keep reference to first update for matching
-          updates, // All updates that need this book
-          isbn,
-        }
-      },
+      (bucket, index) => fetchGoogleBooksForGoodreadsUniqueBucket(bucket, index, logger),
       {
         concurrency: 1, // Very low concurrency to avoid rate limiting (429 errors)
         stopOnError: false,

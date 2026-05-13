@@ -60,6 +60,7 @@ async function tryRefreshGitHubAccessTokenForUser(
   path: string,
   uid: string,
   creds: GitHubOAuthCredentialPayload,
+  refreshToken: string,
 ): Promise<GitHubOAuthCredentialPayload | null> {
   const { clientId, clientSecret } = getGitHubOAuthConfig()
   if (!clientId || !clientSecret) return null
@@ -67,12 +68,12 @@ async function tryRefreshGitHubAccessTokenForUser(
     const refreshed = await refreshGitHubUserAccessToken({
       clientId,
       clientSecret,
-      refreshToken: creds.refreshToken!,
+      refreshToken,
     })
     const next: GitHubOAuthCredentialPayload = {
       accessToken: refreshed.access_token,
       expiresAt: expiresAtFromGithubExpiresIn(refreshed.expires_in),
-      refreshToken: refreshed.refresh_token ?? creds.refreshToken!,
+      refreshToken: refreshed.refresh_token ?? refreshToken,
     }
     return documentStore.mergeDocument
       ? await mergeCredentialRefresh(documentStore, path, uid, next)
@@ -109,7 +110,13 @@ export async function loadGitHubAuthForUser(
   if (!creds.accessToken) return null
 
   if (tokenNeedsRefresh(creds.expiresAt) && creds.refreshToken) {
-    const nextCreds = await tryRefreshGitHubAccessTokenForUser(documentStore, path, uid, creds)
+    const nextCreds = await tryRefreshGitHubAccessTokenForUser(
+      documentStore,
+      path,
+      uid,
+      creds,
+      creds.refreshToken,
+    )
     if (!nextCreds) return null
     creds = nextCreds
   }

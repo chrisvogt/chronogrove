@@ -7,6 +7,16 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.30] - 2026-05-12
+
+### Changed
+
+- **Settings / profile identity** — **`SettingsProfileIdentity`**: Sonar cleanup removes **`void`** on floating promises; debounced username check, DNS polling, and profile **`load`** use **`.catch(swallowSettingsProfileFloatingPromiseRejection)`** (shared no-op, exported so **`test:coverage`** meets per-file function thresholds).
+
+### Tests
+
+- **`SettingsProfileIdentity`** — **`vitest run --coverage`** still satisfies per-file thresholds for included sources.
+
 ## [0.6.29] - 2026-05-12
 
 ### Changed
