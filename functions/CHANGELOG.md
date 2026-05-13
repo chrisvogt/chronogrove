@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CSRF** — Cookie-backed CSRF salt prefix uses **`crypto.randomBytes(TOKEN_SALT_RANDOM_BYTES).toString('hex')`** instead of drawing characters from a fixed alphanumeric alphabet. This matches common Node patterns, preserves a **10**-character salt prefix for **`tokenize`** / **`validate`**, and avoids static-analysis false positives for hard-coded secrets (**Sonar** **S6418**). Binding strength remains from the **`HttpOnly`** secret cookie and **HMAC-SHA256** over the salt.
 
-- **Quality (Sonar)** — **Discogs** / **Instagram** sync jobs pass explicit **`reduce`** callbacks (**`(acc, release) => mediaReducer(acc, release)`**) so reducers are not passed by reference. Vitest avoids predictable world-writable **`/tmp`** paths for disk-backed mocks (**`tmpdir`** / **`mkdtemp`** / unique **`join`** paths).
+- **Quality (Sonar)** — **Discogs** / **Instagram** sync jobs pass explicit **`reduce`** callbacks (**`(acc, release) => mediaReducer(acc, release)`**) so reducers are not passed by reference. Vitest avoids predictable world-writable **`/tmp`** paths for disk-backed mocks (**`tmpdir`** / **`mkdtemp`** / unique **`join`** paths). **`sync-*-data.test.ts`** load **`syncJobDiskMediaTarget`** from **`jobs/test-support/sync-job-disk-media-target.ts`** via **`require`** inside **`vi.hoisted`** (avoids import TDZ and redundant type assertions).
 
 ### Tests
 

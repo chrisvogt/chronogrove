@@ -11,10 +11,8 @@ const pMapDefault = vi.hoisted(() =>
 )
 
 const syncDiscogsMediaTarget = vi.hoisted(() => {
-  const { join } = require('node:path') as typeof import('node:path')
-  const { tmpdir } = require('node:os') as typeof import('node:os')
-  const { randomUUID } = require('node:crypto') as typeof import('node:crypto')
-  return join(tmpdir(), `cg-sync-discogs-${randomUUID()}`)
+  const { syncJobDiskMediaTarget } = require('./test-support/sync-job-disk-media-target.ts')
+  return syncJobDiskMediaTarget('discogs')
 })
 
 vi.mock('p-map', () => ({

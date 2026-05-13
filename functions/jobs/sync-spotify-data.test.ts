@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const syncSpotifyMediaTarget = vi.hoisted(() => {
-  const { join } = require('node:path') as typeof import('node:path')
-  const { tmpdir } = require('node:os') as typeof import('node:os')
-  const { randomUUID } = require('node:crypto') as typeof import('node:crypto')
-  return join(tmpdir(), `cg-sync-spotify-${randomUUID()}`)
+  const { syncJobDiskMediaTarget } = require('./test-support/sync-job-disk-media-target.ts')
+  return syncJobDiskMediaTarget('spotify')
 })
 
 import syncSpotifyData from './sync-spotify-data.js'

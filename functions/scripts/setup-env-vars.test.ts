@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import fs from 'fs'
 import path from 'path'
 import { setupEnvVars, envVarMappings } from './setup-env-vars.cjs'
+
+/** Temp-root fragment without using mocked path APIs (`vi.mock('path')` aliases `node:path` in Vitest). */
+function localMediaRootForDiskFixture(dirName: string): string {
+  const sep = process.platform === 'win32' ? '\\' : '/'
+  const root = tmpdir().replace(/[/\\]+$/, '')
+  return `${root}${sep}${dirName}`
+}
 
 // Mock fs, path, and child_process
 vi.mock('fs')
@@ -32,7 +38,7 @@ describe('setup-env-vars.js', () => {
         image_cdn_base_url: 'https://cdn.test.com',
         media_public_base_url: 'https://media.test.com',
         media_store_backend: 'disk',
-        local_media_root: join(tmpdir(), 'cg-setup-env-vars-media'),
+        local_media_root: localMediaRootForDiskFixture('cg-setup-env-vars-media'),
       },
       discogs: {
         api_key: 'test-discogs-key',
