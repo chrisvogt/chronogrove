@@ -15,18 +15,12 @@ interface CsrfTokenState {
 }
 
 const SECRET_LENGTH = 18
-const TOKEN_SALT_LENGTH = 10
-const TOKEN_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+/** Unpredictable salt prefix length in characters (hex: two chars per random byte). */
+const TOKEN_SALT_RANDOM_BYTES = 5
+const TOKEN_SALT_LENGTH = TOKEN_SALT_RANDOM_BYTES * 2
 
-function createRandomToken(length: number): string {
-  let value = ''
-
-  for (let index = 0; index < length; index += 1) {
-    const randomIndex = crypto.randomInt(0, TOKEN_CHARS.length)
-    value += TOKEN_CHARS[randomIndex]
-  }
-
-  return value
+function createSaltPrefix(): string {
+  return crypto.randomBytes(TOKEN_SALT_RANDOM_BYTES).toString('hex')
 }
 
 function tokenize(salt: string, secret: string): string {
@@ -43,7 +37,7 @@ export function createCookieBackedCsrfImpl(cookieOptions: CookieOptions) {
         req.res?.cookie(secretKey, secret, cookieOptions)
       }
 
-      const token = tokenize(createRandomToken(TOKEN_SALT_LENGTH), secret)
+      const token = tokenize(createSaltPrefix(), secret)
 
       return {
         secret,
