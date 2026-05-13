@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.3] - 2026-05-12
+
+### Changed
+
+- **CSRF** — Cookie-backed CSRF salt prefix uses **`crypto.randomBytes(TOKEN_SALT_RANDOM_BYTES).toString('hex')`** instead of drawing characters from a fixed alphanumeric alphabet. This matches common Node patterns, preserves a **10**-character salt prefix for **`tokenize`** / **`validate`**, and avoids static-analysis false positives for hard-coded secrets (**Sonar** **S6418**). Binding strength remains from the **`HttpOnly`** secret cookie and **HMAC-SHA256** over the salt.
+
+### Tests
+
+- **`cookie-backed-csrf.test.ts`** — Existing **create** / **validate** round-trip coverage unchanged.
+
 ## [0.31.2] - 2026-05-12
 
 ### Fixed
@@ -885,6 +895,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _This changelog was started with v0.8.0._
 
+[0.31.3]: https://github.com/chrisvogt/chronogrove/compare/v0.31.2...v0.31.3
+[0.31.2]: https://github.com/chrisvogt/chronogrove/compare/v0.31.1...v0.31.2
+[0.31.1]: https://github.com/chrisvogt/chronogrove/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/chrisvogt/chronogrove/compare/v0.30.10...v0.31.0
 [0.30.10]: https://github.com/chrisvogt/chronogrove/compare/v0.30.9...v0.30.10
 [0.30.9]: https://github.com/chrisvogt/chronogrove/compare/v0.30.8...v0.30.9
