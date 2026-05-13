@@ -1,7 +1,14 @@
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fetchRecentlyReadBooks, {
   titleForGoogleBooksVolumeQuery,
 } from './fetch-recently-read-books.js'
+
+/** Unique path under the OS temp dir (avoids hardcoded world-writable `/tmp/...`). */
+const goodreadsTestMediaDir = join(tmpdir(), `cg-goodreads-test-media-${randomUUID()}`)
 
 // Mock dependencies
 vi.mock('xml2js', () => ({
@@ -32,7 +39,7 @@ vi.mock('../../services/media/media-service.js', () => ({
 
 vi.mock('../../selectors/media-store.js', () => ({
   getMediaStore: vi.fn(() => ({
-    describe: () => ({ backend: 'disk', target: '/tmp/test-media' }),
+    describe: () => ({ backend: 'disk', target: goodreadsTestMediaDir }),
   })),
 }))
 
@@ -249,7 +256,7 @@ describe('fetchRecentlyReadBooks', () => {
         }],
         rating: ['4']
       }],
-      mediaStore: { backend: 'disk', target: '/tmp/test-media' },
+      mediaStore: { backend: 'disk', target: goodreadsTestMediaDir },
       result: 'SUCCESS',
       totalUploadedCount: 1,
       uploadedFiles: ['books/test-book-id-thumbnail.jpg']
@@ -259,7 +266,7 @@ describe('fetchRecentlyReadBooks', () => {
     expect(mockLogger.info).toHaveBeenCalledWith(
       'Goodreads data sync finished successfully with media uploads.',
       {
-        mediaStore: { backend: 'disk', target: '/tmp/test-media' },
+        mediaStore: { backend: 'disk', target: goodreadsTestMediaDir },
         totalUploadedCount: 1,
         uploadedFiles: ['books/test-book-id-thumbnail.jpg']
       }

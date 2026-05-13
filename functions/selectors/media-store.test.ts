@@ -1,3 +1,6 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('media-store selector', () => {
@@ -41,11 +44,12 @@ describe('media-store selector', () => {
   })
 
   it('returns the configured local media root', async () => {
-    process.env.LOCAL_MEDIA_ROOT = '/tmp/custom-media'
+    const customRoot = join(tmpdir(), 'cg-media-store-custom')
+    process.env.LOCAL_MEDIA_ROOT = customRoot
 
     const { resolveLocalMediaRoot } = await import('./media-store.js')
 
-    expect(resolveLocalMediaRoot()).toBe('/tmp/custom-media')
+    expect(resolveLocalMediaRoot()).toBe(customRoot)
   })
 
   it('throws for unsupported backends instead of silently falling back to gcs', async () => {
@@ -66,7 +70,9 @@ describe('media-store selector', () => {
 
   it('caches the selected store until reset and then re-resolves from env', async () => {
     process.env.MEDIA_STORE_BACKEND = 'disk'
-    process.env.LOCAL_MEDIA_ROOT = '/tmp/first-media-root'
+    const firstRoot = join(tmpdir(), 'cg-media-store-first')
+    const secondRoot = join(tmpdir(), 'cg-media-store-second')
+    process.env.LOCAL_MEDIA_ROOT = firstRoot
 
     const { getMediaStore, resetMediaStoreForTests } = await import('./media-store.js')
 
@@ -75,15 +81,15 @@ describe('media-store selector', () => {
     expect(initialStore).toBe(cachedStore)
     expect(initialStore.describe()).toEqual({
       backend: 'disk',
-      target: '/tmp/first-media-root',
+      target: firstRoot,
     })
 
-    process.env.LOCAL_MEDIA_ROOT = '/tmp/second-media-root'
+    process.env.LOCAL_MEDIA_ROOT = secondRoot
     resetMediaStoreForTests()
 
     const resetStore = getMediaStore()
     expect(resetStore.describe().backend).toBe('disk')
     expect(resetStore).not.toBe(initialStore)
-    expect(resetStore.describe().target).toBe('/tmp/second-media-root')
+    expect(resetStore.describe().target).toBe(secondRoot)
   })
 })

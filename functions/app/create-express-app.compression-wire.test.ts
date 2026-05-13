@@ -1,6 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+
+const compressionWireMediaDir = mkdtempSync(join(tmpdir(), 'cg-compression-wire-'))
 
 const { compressionFn, compressionDefaultFilter } = vi.hoisted(() => {
   const compressionDefaultFilter = vi.fn(() => true)
@@ -38,6 +44,10 @@ vi.mock('../services/sync-manual.js', () => ({
     }),
   ),
 }))
+
+afterAll(() => {
+  rmSync(compressionWireMediaDir, { recursive: true, force: true })
+})
 
 describe('createExpressApp compression middleware registration', () => {
   const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
@@ -77,7 +87,7 @@ describe('createExpressApp compression middleware registration', () => {
       ensureRuntimeConfigApplied: vi.fn().mockResolvedValue(undefined),
       getClientAuthConfig: vi.fn(() => ({})),
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-compression-wire'),
+      resolveMediaStore: () => new LocalDiskMediaStore(compressionWireMediaDir),
       syncJobQueue,
     })
 

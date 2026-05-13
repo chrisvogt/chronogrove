@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const syncSpotifyMediaTarget = vi.hoisted(() => {
+  const { join } = require('node:path') as typeof import('node:path')
+  const { tmpdir } = require('node:os') as typeof import('node:os')
+  const { randomUUID } = require('node:crypto') as typeof import('node:crypto')
+  return join(tmpdir(), `cg-sync-spotify-${randomUUID()}`)
+})
+
 import syncSpotifyData from './sync-spotify-data.js'
 import type { DocumentStore } from '../ports/document-store.js'
 import { configureLogger } from '../services/logger.js'
@@ -34,7 +41,7 @@ vi.mock('../api/spotify/get-user-profile.js', () => ({
 }))
 
 vi.mock('../services/media/media-service.js', () => ({
-  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: '/tmp/media' })),
+  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: syncSpotifyMediaTarget })),
   listStoredMedia: vi.fn(),
   storeRemoteMedia: vi.fn(async (item) => ({ fileName: item.destinationPath })),
   toPublicMediaUrl: vi.fn((path) => `https://cdn.example.com/${path}`),

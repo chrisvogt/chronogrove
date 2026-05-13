@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import fs from 'fs'
 import path from 'path'
 import { setupEnvVars, envVarMappings } from './setup-env-vars.cjs'
@@ -30,7 +32,7 @@ describe('setup-env-vars.js', () => {
         image_cdn_base_url: 'https://cdn.test.com',
         media_public_base_url: 'https://media.test.com',
         media_store_backend: 'disk',
-        local_media_root: '/tmp/metrics-media'
+        local_media_root: join(tmpdir(), 'cg-setup-env-vars-media'),
       },
       discogs: {
         api_key: 'test-discogs-key',

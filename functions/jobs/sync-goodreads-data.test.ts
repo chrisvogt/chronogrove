@@ -1,4 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const syncGoodreadsMediaTarget = vi.hoisted(() => {
+  const { join } = require('node:path') as typeof import('node:path')
+  const { tmpdir } = require('node:os') as typeof import('node:os')
+  const { randomUUID } = require('node:crypto') as typeof import('node:crypto')
+  return join(tmpdir(), `cg-sync-goodreads-${randomUUID()}`)
+})
+
 import syncGoodreadsData from './sync-goodreads-data.js'
 import type { DocumentStore } from '../ports/document-store.js'
 import { configureLogger } from '../services/logger.js'
@@ -36,7 +44,7 @@ vi.mock('got', () => ({
 }))
 
 vi.mock('../services/media/media-service.js', () => ({
-  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: '/tmp/media' })),
+  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: syncGoodreadsMediaTarget })),
   listStoredMedia: vi.fn(),
   storeRemoteMedia: vi.fn(),
   toPublicMediaUrl: vi.fn((path) => `https://cdn.example.com/${path}`),

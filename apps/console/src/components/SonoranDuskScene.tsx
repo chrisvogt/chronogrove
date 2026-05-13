@@ -36,10 +36,19 @@ const SIL = sonoranDuskSilhouetteHex
 
 /* ── Seeded PRNG (mulberry32) ────────────────────────────────────────── */
 
+/** Signed int32 wrap semantics (same as `n | 0`); mulberry32 depends on overflow, not plain truncation. */
+function coerceSignedInt32(value: number): number {
+  const t = Math.trunc(value)
+  let w = t % 0x1_0000_0000
+  if (w >= 0x8000_0000) w -= 0x1_0000_0000
+  if (w < -0x8000_0000) w += 0x1_0000_0000
+  return w
+}
+
 function makeRng(seed: number) {
-  let s = seed | 0
+  let s = coerceSignedInt32(seed)
   return () => {
-    s = (s + 0x6d2b79f5) | 0
+    s = coerceSignedInt32(s + 0x6d2b79f5)
     let t = Math.imul(s ^ (s >>> 15), 1 | s)
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296

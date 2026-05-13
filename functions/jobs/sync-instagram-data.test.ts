@@ -10,6 +10,13 @@ const pMapDefault = vi.hoisted(() =>
   }),
 )
 
+const syncInstagramMediaTarget = vi.hoisted(() => {
+  const { join } = require('node:path') as typeof import('node:path')
+  const { tmpdir } = require('node:os') as typeof import('node:os')
+  const { randomUUID } = require('node:crypto') as typeof import('node:crypto')
+  return join(tmpdir(), `cg-sync-instagram-${randomUUID()}`)
+})
+
 vi.mock('p-map', () => ({
   default: pMapDefault,
 }))
@@ -23,7 +30,7 @@ vi.mock('../api/instagram/fetch-instagram-data.js', () => ({
 }))
 
 vi.mock('../services/media/media-service.js', () => ({
-  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: '/tmp/media' })),
+  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: syncInstagramMediaTarget })),
   listStoredMedia: vi.fn(),
   storeRemoteMedia: vi.fn(async (item) => ({
     fileName: item.destinationPath || 'chrisvogt/instagram/test.jpg',

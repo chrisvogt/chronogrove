@@ -1,6 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+
+const routeCoverageMediaDir = mkdtempSync(join(tmpdir(), 'cg-route-coverage-'))
 
 vi.mock('express-rate-limit', () => ({
   rateLimit: vi.fn(() => (_req, _res, next) => next?.()),
@@ -23,6 +29,10 @@ vi.mock('../services/sync-manual.js', () => ({
     worker: { jobId: 'sync-chrisvogt-steam', result: 'SUCCESS' },
   })),
 }))
+
+afterAll(() => {
+  rmSync(routeCoverageMediaDir, { recursive: true, force: true })
+})
 
 const findRouteHandler = (
   app: ReturnType<typeof import('express').default>,
@@ -118,7 +128,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -167,7 +177,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
     const syncRouteHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider')
@@ -198,7 +208,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -237,7 +247,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -268,7 +278,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -306,7 +316,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -360,7 +370,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -408,7 +418,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -462,7 +472,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -507,7 +517,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -550,7 +560,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -600,7 +610,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -635,7 +645,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -663,7 +673,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -694,7 +704,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -725,7 +735,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -767,7 +777,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
 
@@ -799,7 +809,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
     const csrfHandler = findRouteHandler(app, 'get', '/api/csrf-token')
@@ -822,7 +832,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
     const handler = findRouteHandler(app, 'get', '/api/user/profile')
@@ -841,7 +851,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
     const handler = findRouteHandler(app, 'delete', '/api/user/account')
@@ -860,7 +870,7 @@ describe('createExpressApp route coverage', () => {
       ensureRuntimeConfigApplied,
       getClientAuthConfig,
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
     const handler = findRouteHandler(app, 'post', '/api/auth/logout')
@@ -882,7 +892,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       const handler = findRouteHandler(app, 'get', '/api/user/settings')
@@ -930,7 +940,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       documentStore.getDocument.mockRejectedValueOnce(new Error('firestore down'))
@@ -949,7 +959,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       const handler = findRouteHandler(app, 'get', '/api/user/settings')
@@ -966,7 +976,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       documentStore.getDocument.mockResolvedValue({
@@ -1002,7 +1012,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
@@ -1034,7 +1044,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
@@ -1061,7 +1071,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
@@ -1082,7 +1092,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       documentStore.getDocument.mockResolvedValue({ settings: {} })
@@ -1101,7 +1111,7 @@ describe('createExpressApp route coverage', () => {
         ensureRuntimeConfigApplied,
         getClientAuthConfig,
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-unused-route-coverage'),
+        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
         syncJobQueue,
       })
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')

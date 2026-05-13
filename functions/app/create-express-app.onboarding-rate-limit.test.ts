@@ -1,8 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import dns from 'dns'
 import request from 'supertest'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+
+const onboardingRlMediaDir = mkdtempSync(join(tmpdir(), 'cg-onboarding-rl-'))
 
 /**
  * Real `express-rate-limit` (not mocked) so onboarding limiters exercise the
@@ -32,6 +38,10 @@ vi.mock('../services/onboarding-wizard-persistence.js', () => ({
   loadOnboardingStateForApi: vi.fn(),
   persistOnboardingWizardState: vi.fn(),
 }))
+
+afterAll(() => {
+  rmSync(onboardingRlMediaDir, { recursive: true, force: true })
+})
 
 describe('createExpressApp onboarding rate limits (real limiter)', () => {
   const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
@@ -78,7 +88,7 @@ describe('createExpressApp onboarding rate limits (real limiter)', () => {
       ensureRuntimeConfigApplied: vi.fn().mockResolvedValue(undefined),
       getClientAuthConfig: vi.fn(() => ({})),
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-onboarding-rl'),
+      resolveMediaStore: () => new LocalDiskMediaStore(onboardingRlMediaDir),
       syncJobQueue,
     })
   }

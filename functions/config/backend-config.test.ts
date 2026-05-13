@@ -1,3 +1,6 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('backend config', () => {
@@ -65,10 +68,12 @@ describe('backend config', () => {
     const dotenvConfig = vi.fn()
     vi.doMock('dotenv', () => ({ config: dotenvConfig }))
 
-    const { loadLocalDevelopmentEnv } = await import('./backend-config.js')
-    loadLocalDevelopmentEnv('/tmp/test.env')
+    const dotEnvPath = join(tmpdir(), 'chronogrove-backend-config-test.env')
 
-    expect(dotenvConfig).toHaveBeenCalledWith({ path: '/tmp/test.env' })
+    const { loadLocalDevelopmentEnv } = await import('./backend-config.js')
+    loadLocalDevelopmentEnv(dotEnvPath)
+
+    expect(dotenvConfig).toHaveBeenCalledWith({ path: dotEnvPath })
   })
 
   it('skips local dotenv loading in production', async () => {
@@ -76,8 +81,10 @@ describe('backend config', () => {
     const dotenvConfig = vi.fn()
     vi.doMock('dotenv', () => ({ config: dotenvConfig }))
 
+    const dotEnvPath = join(tmpdir(), 'chronogrove-backend-config-test.env')
+
     const { loadLocalDevelopmentEnv } = await import('./backend-config.js')
-    loadLocalDevelopmentEnv('/tmp/test.env')
+    loadLocalDevelopmentEnv(dotEnvPath)
 
     expect(dotenvConfig).not.toHaveBeenCalled()
   })
@@ -181,14 +188,15 @@ describe('backend config', () => {
     process.env.NODE_ENV = 'production'
     process.env.CLOUD_STORAGE_IMAGES_BUCKET = 'bucket-name'
     process.env.MEDIA_STORE_BACKEND = 'disk'
-    process.env.LOCAL_MEDIA_ROOT = '/tmp/media-root'
+    const explicitMediaRoot = join(tmpdir(), 'chronogrove-media-root')
+    process.env.LOCAL_MEDIA_ROOT = explicitMediaRoot
 
     const { getStorageConfig } = await import('./backend-config.js')
 
     expect(getStorageConfig()).toEqual({
       cloudStorageImagesBucket: 'bucket-name',
       imageCdnBaseUrl: undefined,
-      localMediaRoot: '/tmp/media-root',
+      localMediaRoot: explicitMediaRoot,
       mediaPublicBaseUrl: undefined,
       mediaStoreBackend: 'disk',
     })

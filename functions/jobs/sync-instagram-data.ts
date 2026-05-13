@@ -115,7 +115,10 @@ const syncInstagramData = async (
     const storedMediaFileNames = await listStoredMedia()
 
     const mediaReducer = getMediaReducer(storedMediaFileNames)
-    const mediaToDownload = rawMedia.reduce(mediaReducer, [] as InstagramMediaDownloadItem[])
+    const mediaToDownload = rawMedia.reduce(
+      (acc, mediaItem) => mediaReducer(acc, mediaItem),
+      [] as InstagramMediaDownloadItem[],
+    )
 
     onProgress?.({
       phase: 'instagram.persist',

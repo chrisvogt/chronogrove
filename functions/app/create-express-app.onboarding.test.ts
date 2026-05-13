@@ -1,7 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import dns from 'dns'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+
+const onboardingExpressMediaDir = mkdtempSync(join(tmpdir(), 'cg-onboarding-express-'))
 
 vi.mock('express-rate-limit', () => ({
   rateLimit: vi.fn(() => (_req: unknown, _res: unknown, next: () => void) => next()),
@@ -31,6 +37,10 @@ vi.mock('../services/onboarding-wizard-persistence.js', () => ({
   loadOnboardingStateForApi: vi.fn(),
   persistOnboardingWizardState: vi.fn(),
 }))
+
+afterAll(() => {
+  rmSync(onboardingExpressMediaDir, { recursive: true, force: true })
+})
 
 const findRouteHandler = (
   app: ReturnType<typeof import('express').default>,
@@ -91,7 +101,7 @@ describe('createExpressApp onboarding routes', () => {
         ensureRuntimeConfigApplied: vi.fn().mockResolvedValue(undefined),
         getClientAuthConfig: vi.fn(() => ({})),
         logger,
-        resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-onboarding-tests'),
+        resolveMediaStore: () => new LocalDiskMediaStore(onboardingExpressMediaDir),
         syncJobQueue,
       }),
       loadOnboardingStateForApi,
@@ -481,7 +491,7 @@ describe('createExpressApp onboarding routes', () => {
       ensureRuntimeConfigApplied: vi.fn().mockResolvedValue(undefined),
       getClientAuthConfig: vi.fn(() => ({})),
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-onb-legacy-claimed-only'),
+      resolveMediaStore: () => new LocalDiskMediaStore(onboardingExpressMediaDir),
       syncJobQueue,
     })
     const handler = findRouteHandler(app, 'get', '/api/onboarding/check-username')
@@ -506,7 +516,7 @@ describe('createExpressApp onboarding routes', () => {
       ensureRuntimeConfigApplied: vi.fn().mockResolvedValue(undefined),
       getClientAuthConfig: vi.fn(() => ({})),
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-onb-legacy-claimed-only2'),
+      resolveMediaStore: () => new LocalDiskMediaStore(onboardingExpressMediaDir),
       syncJobQueue,
     })
     const handler = findRouteHandler(app, 'get', '/api/onboarding/check-username')
@@ -739,7 +749,7 @@ describe('createExpressApp onboarding routes', () => {
       ensureRuntimeConfigApplied: vi.fn().mockResolvedValue(undefined),
       getClientAuthConfig: vi.fn(() => ({})),
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-onb2'),
+      resolveMediaStore: () => new LocalDiskMediaStore(onboardingExpressMediaDir),
       syncJobQueue,
     })
     const handler = findRouteHandler(bareApp, 'get', '/api/onboarding/check-username')
