@@ -875,7 +875,8 @@ describe('syncGoodreadsData', () => {
             authors: ['Test Author'],
             infoLink: 'http://books.google.com/book',
             imageLinks: {
-              thumbnail: 'http://books.google.com/thumb.jpg'
+              smallThumbnail: 'http://books.google.com/small.jpg',
+              thumbnail: 'http://books.google.com/thumb.jpg',
             },
             industryIdentifiers: [
               { type: 'ISBN_13', identifier: '9780143127550' }

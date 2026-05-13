@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { errorMessageFromUnknown, parseGotHttpErrorBody } from './sync-goodreads-data.js'
+import { errorMessageFromUnknown, getIsbnFromGoodreadsBookFields, parseGotHttpErrorBody } from './sync-goodreads-data.js'
 
 describe('sync-goodreads-data error helpers', () => {
   it('errorMessageFromUnknown handles Error, string, JSON, and JSON.stringify failure', () => {
@@ -10,6 +10,20 @@ describe('sync-goodreads-data error helpers', () => {
     const circular: Record<string, unknown> = {}
     circular.self = circular
     expect(errorMessageFromUnknown(circular)).toBe('Unknown error')
+  })
+
+  it('getIsbnFromGoodreadsBookFields returns null when book is undefined', () => {
+    expect(getIsbnFromGoodreadsBookFields(undefined)).toBeNull()
+  })
+
+  it('getIsbnFromGoodreadsBookFields reads ISBN_13 / ISBN from Goodreads XML shapes', () => {
+    expect(
+      getIsbnFromGoodreadsBookFields({
+        isbn13: '9780000000000',
+        title: 'T',
+      } as never),
+    ).toBe('9780000000000')
+    expect(getIsbnFromGoodreadsBookFields({ isbn: '0140000000', title: 'T' } as never)).toBe('0140000000')
   })
 
   it('parseGotHttpErrorBody returns null for missing body, parses string JSON, returns object body as-is', () => {

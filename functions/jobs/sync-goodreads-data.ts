@@ -133,8 +133,11 @@ async function fetchGoogleBooksOperationWithRetry<T>(
 }
 
 function getIsbnFromGoodreadsBookFields(
-  book: GoodreadsReviewBook | GoodreadsUserStatusBook,
+  book: GoodreadsReviewBook | GoodreadsUserStatusBook | undefined,
 ): string | null {
+  if (book == null) {
+    return null
+  }
   return getXmlTextOrNull(book.isbn13) ?? getXmlTextOrNull(book.isbn)
 }
 
@@ -161,7 +164,6 @@ const transformBookData = (
     rating,
     goodreadsDescription,
     isbn,
-    readAt,
   } = book
 
   const mediaDestinationPath = toBookMediaDestinationPath(id)
@@ -178,7 +180,6 @@ const transformBookData = (
     pageCount,
     previewLink,
     rating,
-    ...(readAt != null && readAt !== '' ? { readAt } : {}),
     smallThumbnail: smallThumbnail ? convertToHttps(smallThumbnail) : '',
     subtitle,
     thumbnail: thumbnail ? convertToHttps(thumbnail) : '',
@@ -452,13 +453,10 @@ const processUpdatesWithMedia = async (
         fetchedBooksByISBN.set(isbnStr.replace(/-/g, ''), book)
       }
       // Also map by the update's original ISBN (in case it differs from Google Books)
-      const updateBook = book.update.book
-      if (updateBook) {
-        const updateISBN = getIsbnFromGoodreadsBookFields(updateBook)
-        if (updateISBN && String(updateISBN) !== String(book.isbn)) {
-          fetchedBooksByISBN.set(String(updateISBN), book)
-          fetchedBooksByISBN.set(String(updateISBN).replace(/-/g, ''), book)
-        }
+      const updateISBN = getIsbnFromGoodreadsBookFields(book.update.book)
+      if (updateISBN && String(updateISBN) !== String(book.isbn)) {
+        fetchedBooksByISBN.set(String(updateISBN), book)
+        fetchedBooksByISBN.set(String(updateISBN).replace(/-/g, ''), book)
       }
       // Also map by title for cases where ISBN is missing (like review updates)
       if (book.title) {
@@ -672,6 +670,6 @@ const syncGoodreadsData = async (
   }
 }
 
-export { errorMessageFromUnknown, parseGotHttpErrorBody }
+export { errorMessageFromUnknown, getIsbnFromGoodreadsBookFields, parseGotHttpErrorBody }
 
 export default syncGoodreadsData
