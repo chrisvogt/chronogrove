@@ -1,6 +1,6 @@
 {
   "name": "chronogrove-functions",
-  "version": "0.31.1",
+  "version": "0.31.2",
   "license": "Apache-2.0",
   "description": "Chronogrove server: Firebase Cloud Functions for the public widget API, authenticated admin routes, and provider sync jobs.",
   "type": "module",

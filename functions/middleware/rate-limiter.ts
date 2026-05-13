@@ -13,21 +13,18 @@ const rateLimiter = (windowMs = 15 * 60 * 1000, maxRequests = 100) => {
     const key = req.ip || (req.socket?.remoteAddress ?? 'unknown')
     const now = Date.now()
 
-    if (!rateLimitStore.has(key)) {
-      rateLimitStore.set(key, {
+    let record = rateLimitStore.get(key)
+    if (!record) {
+      record = {
         count: 1,
         resetTime: now + windowMs,
-      })
-    } else {
-      // `has(key)` guarantees `get(key)` returns the record for a native Map.
-      const record = rateLimitStore.get(key) as RateLimitRecord
-      if (now > record.resetTime) {
-        record.count = 1
-        record.resetTime = now + windowMs
-      } else {
-        record.count++
       }
-
+      rateLimitStore.set(key, record)
+    } else if (now > record.resetTime) {
+      record.count = 1
+      record.resetTime = now + windowMs
+    } else {
+      record.count++
       if (record.count > maxRequests) {
         logger.warn(`Rate limit exceeded for IP: ${key}`)
         res.status(429).json({

@@ -12,6 +12,7 @@ import {
   SettingsCustomDomainBlock,
   SettingsProfileIdentity,
   SettingsUsernameBlock,
+  swallowSettingsProfileFloatingPromiseRejection,
 } from './SettingsProfileIdentity'
 
 const apiMocks = vi.hoisted(() => ({
@@ -107,6 +108,13 @@ describe('profileIdentityLoadFailureMessage', () => {
 
   it('returns the API or parse error when present', () => {
     expect(profileIdentityLoadFailureMessage('No profile data.')).toBe('No profile data.')
+  })
+})
+
+describe('swallowSettingsProfileFloatingPromiseRejection', () => {
+  it('is a no-op (shared Promise.catch handler for fire-and-forget)', () => {
+    swallowSettingsProfileFloatingPromiseRejection()
+    swallowSettingsProfileFloatingPromiseRejection(new Error('reject'))
   })
 })
 

@@ -136,7 +136,7 @@ export interface SpotifyWidgetDocument {
   meta?: WidgetMeta & { totalUploadedMediaCount?: number }
   metrics?: WidgetMetricValue[]
   profile?: {
-    avatarURL?: { url?: string } | unknown
+    avatarURL?: unknown
     displayName?: string
     followersCount?: number
     id?: string

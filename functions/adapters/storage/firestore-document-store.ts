@@ -11,7 +11,7 @@ function toCollectionAndDocument(path: string): { collectionPath: string; docume
   }
 
   // With length ≥2 and filter(Boolean), the last segment is always defined.
-  const documentId = segments[segments.length - 1] as string
+  const documentId = segments[segments.length - 1]
 
   return {
     collectionPath: segments.slice(0, -1).join('/'),

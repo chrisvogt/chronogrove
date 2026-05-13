@@ -313,12 +313,24 @@ export const requireVerifiedEmail: express.RequestHandler = (req, res, next) => 
   next()
 }
 
-export function getSessionAuthError(authHeader: string | undefined): string | null {
+function parseSessionBearerAuth(
+  authHeader: string | undefined,
+): { ok: true; token: string } | { ok: false; error: string } {
   if (!authHeader?.startsWith('Bearer ')) {
-    return 'No valid authorization token provided'
+    return { ok: false, error: 'No valid authorization token provided' }
   }
-  const token = extractBearerToken(authHeader) ?? ''
-  if (!token) return 'No token'
+  const token = extractBearerToken(authHeader)
+  if (!token) {
+    return { ok: false, error: 'No token' }
+  }
+  return { ok: true, token }
+}
+
+export function getSessionAuthError(authHeader: string | undefined): string | null {
+  const r = parseSessionBearerAuth(authHeader)
+  if ('error' in r) {
+    return r.error
+  }
   return null
 }
 
@@ -1000,15 +1012,12 @@ export function createExpressApp({
     rateLimit({ ...rateLimitDefaults, windowMs: 15 * 60 * 1000, limit: 20 }),
     async (req, res) => {
       try {
-        const authError = getSessionAuthError(req.headers.authorization)
-        if (authError) {
-          res.status(401).json({ ok: false, error: authError })
+        const auth = parseSessionBearerAuth(req.headers.authorization)
+        if ('error' in auth) {
+          res.status(401).json({ ok: false, error: auth.error })
           return
         }
-
-        // Invariant: when getSessionAuthError is null, extractBearerToken yields a non-empty string.
-        const token = extractBearerToken(req.headers.authorization)!
-        const decodedToken = await authService.verifyIdToken(token)
+        const decodedToken = await authService.verifyIdToken(auth.token)
 
         if (!isAllowedEmail(decodedToken.email)) {
           res.status(403).json({
@@ -1033,7 +1042,7 @@ export function createExpressApp({
         })
 
         const expiresIn = 60 * 60 * 24 * 5 * 1000
-        const sessionCookie = await authService.createSessionCookie(token, { expiresIn })
+        const sessionCookie = await authService.createSessionCookie(auth.token, { expiresIn })
 
         const options = {
           ...sessionCookieBaseOptions,

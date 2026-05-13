@@ -44,6 +44,10 @@ type GotLikeError = {
   statusCode?: number
 }
 
+type GoogleBooksApiErrorBody = {
+  error?: { status?: string; code?: number; message?: string }
+} | null
+
 function parseGoogleBooksApiErrorBody(error: unknown): unknown {
   const gotErr = error as GotLikeError
   const raw = gotErr.response?.body
@@ -60,6 +64,80 @@ function parseGoogleBooksApiErrorBody(error: unknown): unknown {
   }
 }
 
+function isGoogleBooksQuotaExceededFromParsedBody(body: unknown): boolean {
+  const errorBody = body as GoogleBooksApiErrorBody
+  return (
+    errorBody?.error?.status === 'RESOURCE_EXHAUSTED' ||
+    (errorBody?.error?.code === 429 && Boolean(errorBody?.error?.message?.includes('Quota exceeded')))
+  )
+}
+
+async function handleGoogleBooksTitleSearchFailure(
+  error: unknown,
+  options: {
+    attempt: number
+    maxRetries: number
+    book: GoodreadsReviewListBookSource
+  },
+): Promise<'retry' | 'stop'> {
+  const { attempt, maxRetries, book } = options
+  const gotErr = error as GotLikeError
+  const statusCode = gotErr.response?.statusCode ?? gotErr.statusCode
+  const parsedBody = parseGoogleBooksApiErrorBody(error)
+
+  if (isGoogleBooksQuotaExceededFromParsedBody(parsedBody)) {
+    const errorBody = parsedBody as GoogleBooksApiErrorBody
+    logger.error('Daily quota exceeded for Google Books API. Title/author fallback skipped.', {
+      message: errorBody?.error?.message,
+    })
+    return 'stop'
+  }
+
+  if ((statusCode === 429 || statusCode === 503) && attempt < maxRetries) {
+    const waitTime = Math.pow(2, attempt) * 1000
+    logger.warn(
+      `Rate limited (${statusCode}) for title search "${book.title}", waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`,
+    )
+    await new Promise((resolve) => setTimeout(resolve, waitTime))
+    return 'retry'
+  }
+
+  const mode = book.authorName ? 'title/author' : 'title'
+  logger.error(
+    `Error fetching book by ${mode} for recently read "${book.title}" after retries:`,
+    error,
+  )
+  return 'stop'
+}
+
+async function tryFetchGoogleBookByTitleOnce(
+  book: GoodreadsReviewListBookSource,
+  searchQuery: string,
+): Promise<GoogleBooksFetchByIsbnResult | null> {
+  const googleBooksAPIKey = getGoogleBooksApiKey()
+  const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
+    searchParams: {
+      q: searchQuery,
+      key: googleBooksAPIKey,
+      country: 'US',
+    },
+  })
+  const parsed: unknown = JSON.parse(body)
+  const foundBook: GoogleBooksVolumeSubset | undefined =
+    isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
+
+  if (!foundBook) {
+    return null
+  }
+  logger.info(
+    `Found book by ${book.authorName ? 'title/author' : 'title'} for recently read: ${book.title}`,
+  )
+  return {
+    book: foundBook,
+    rating: book.rating,
+  }
+}
+
 async function fetchGoogleBookByTitleFallback(
   book: GoodreadsReviewListBookSource,
 ): Promise<GoogleBooksFetchByIsbnResult | null> {
@@ -70,55 +148,15 @@ async function fetchGoogleBookByTitleFallback(
   const maxRetries = 3
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const googleBooksAPIKey = getGoogleBooksApiKey()
-      const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
-        searchParams: {
-          q: searchQuery,
-          key: googleBooksAPIKey,
-          country: 'US',
-        },
-      })
-      const parsed: unknown = JSON.parse(body)
-      const foundBook: GoogleBooksVolumeSubset | undefined =
-        isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
-
-      if (foundBook) {
-        logger.info(
-          `Found book by ${book.authorName ? 'title/author' : 'title'} for recently read: ${book.title}`,
-        )
-        return {
-          book: foundBook,
-          rating: book.rating,
-        }
+      const result = await tryFetchGoogleBookByTitleOnce(book, searchQuery)
+      if (result !== null) {
+        return result
       }
     } catch (error: unknown) {
-      const gotErr = error as GotLikeError
-      const statusCode = gotErr.response?.statusCode ?? gotErr.statusCode
-      const errorBody = parseGoogleBooksApiErrorBody(error) as {
-        error?: { status?: string; code?: number; message?: string }
-      } | null
-      const isQuotaExceeded =
-        errorBody?.error?.status === 'RESOURCE_EXHAUSTED' ||
-        (errorBody?.error?.code === 429 && Boolean(errorBody?.error?.message?.includes('Quota exceeded')))
-      if (isQuotaExceeded) {
-        logger.error('Daily quota exceeded for Google Books API. Title/author fallback skipped.', {
-          message: errorBody?.error?.message,
-        })
-        break
-      }
-      if ((statusCode === 429 || statusCode === 503) && attempt < maxRetries) {
-        const waitTime = Math.pow(2, attempt) * 1000
-        logger.warn(
-          `Rate limited (${statusCode}) for title search "${book.title}", waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`,
-        )
-        await new Promise((resolve) => setTimeout(resolve, waitTime))
+      const next = await handleGoogleBooksTitleSearchFailure(error, { attempt, maxRetries, book })
+      if (next === 'retry') {
         continue
       }
-      const mode = book.authorName ? 'title/author' : 'title'
-      logger.error(
-        `Error fetching book by ${mode} for recently read "${book.title}" after retries:`,
-        error,
-      )
       break
     }
   }
