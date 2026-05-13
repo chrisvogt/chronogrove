@@ -59,7 +59,6 @@ async function tryRefreshGitHubAccessTokenForUser(
   documentStore: DocumentStore,
   path: string,
   uid: string,
-  creds: GitHubOAuthCredentialPayload,
   refreshToken: string,
 ): Promise<GitHubOAuthCredentialPayload | null> {
   const { clientId, clientSecret } = getGitHubOAuthConfig()
@@ -114,7 +113,6 @@ export async function loadGitHubAuthForUser(
       documentStore,
       path,
       uid,
-      creds,
       creds.refreshToken,
     )
     if (!nextCreds) return null

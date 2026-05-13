@@ -328,7 +328,10 @@ function parseSessionBearerAuth(
 
 export function getSessionAuthError(authHeader: string | undefined): string | null {
   const r = parseSessionBearerAuth(authHeader)
-  return r.ok ? null : r.error
+  if ('error' in r) {
+    return r.error
+  }
+  return null
 }
 
 export function createExpressApp({
@@ -1010,7 +1013,7 @@ export function createExpressApp({
     async (req, res) => {
       try {
         const auth = parseSessionBearerAuth(req.headers.authorization)
-        if (!auth.ok) {
+        if ('error' in auth) {
           res.status(401).json({ ok: false, error: auth.error })
           return
         }
