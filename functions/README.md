@@ -33,3 +33,7 @@ From the **repo root**:
 - **Tests (watch):** `pnpm --filter chronogrove-functions run test:watch`
 - **Tests (coverage):** `pnpm run test:coverage`
 - **Lint:** `pnpm run lint`
+
+### Vitest paths that touch disk
+
+Avoid hardcoded **`/tmp/...`** in tests (predictable world-writable paths are security hotspots for static analysis). Prefer **`os.tmpdir()`** with **`path.join`** or **`fs.mkdtempSync`**, and remove created dirs in **`afterAll`** when tests write through **`LocalDiskMediaStore`** or similar. For **`vi.mock(…)`** factories that run before ESM imports finish initializing, build those paths inside **`vi.hoisted(() => { … })`** using **`require('node:path')`** / **`require('node:os')`** so Vitest hoisting does not hit temporal-dead-zone errors.
