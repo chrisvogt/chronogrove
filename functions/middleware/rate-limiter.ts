@@ -19,7 +19,8 @@ const rateLimiter = (windowMs = 15 * 60 * 1000, maxRequests = 100) => {
         resetTime: now + windowMs,
       })
     } else {
-      const record = rateLimitStore.get(key)!
+      // `has(key)` guarantees `get(key)` returns the record for a native Map.
+      const record = rateLimitStore.get(key) as RateLimitRecord
       if (now > record.resetTime) {
         record.count = 1
         record.resetTime = now + windowMs

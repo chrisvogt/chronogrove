@@ -22,6 +22,11 @@ export interface OnboardingProgressPayload {
 type DnsStatus = 'idle' | 'checking' | 'verified' | 'not-verified' | 'error'
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'error'
 
+/** @internal Exported for unit tests. */
+export function profileIdentityLoadFailureMessage(loadError: string | null): string {
+  return loadError ?? 'Could not load profile.'
+}
+
 async function putOnboarding(
   user: User,
   body: {
@@ -497,9 +502,6 @@ export function SettingsProfileIdentity({
   const authIdentityKey = user?.uid ?? ''
 
   const load = useCallback(async () => {
-    if (!apiSessionReady) return
-    const currentUser = userRef.current
-    if (!currentUser) return
     // Only swap to the full-page spinner when we have nothing to show yet. A second
     // `load()` (e.g. React Strict Mode re-invoke or overlapping effects) would otherwise
     // set `loading` true again, unmount the identity form, and clear in-flight username edits.
@@ -509,7 +511,7 @@ export function SettingsProfileIdentity({
     }
     setLoadError(null)
     try {
-      const idToken = await currentUser.getIdToken()
+      const idToken = await userRef.current!.getIdToken()
       const res = await apiClient.getJson('/api/onboarding/progress', { idToken })
       if (!res.ok) throw new Error('Could not load profile.')
       const data = (await res.json()) as { payload?: OnboardingProgressPayload }
@@ -523,7 +525,7 @@ export function SettingsProfileIdentity({
     } finally {
       setLoading(false)
     }
-  }, [apiSessionReady])
+  }, [])
 
   useEffect(() => {
     if (!apiSessionReady) return
@@ -550,7 +552,7 @@ export function SettingsProfileIdentity({
   if (loadError || !progress) {
     return (
       <p className={settingsStyles.feedbackError} role="alert">
-        {loadError ?? 'Could not load profile.'}
+        {profileIdentityLoadFailureMessage(loadError)}
       </p>
     )
   }

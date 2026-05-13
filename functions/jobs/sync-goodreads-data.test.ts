@@ -220,6 +220,54 @@ describe('syncGoodreadsData', () => {
     expect(documentStore.setDocument).not.toHaveBeenCalled()
   })
 
+  it('persists null updates when Goodreads user payload has null updates', async () => {
+    fetchUser.mockResolvedValue({
+      profile: { displayName: 'Reader' },
+      updates: null,
+      jsonResponse: {},
+    })
+    fetchRecentlyReadBooks.mockResolvedValue({ books: [], rawReviewsResponse: [] })
+    generateGoodreadsSummary.mockResolvedValue('<p>x</p>')
+
+    const result = await syncGoodreadsData(documentStore)
+
+    expect(result.result).toBe('SUCCESS')
+    expect(result.data.collections?.updates).toBeNull()
+  })
+
+  it('treats null recentlyRead.books as empty when processing updates', async () => {
+    const mockFetchBookFromGoogle = (await import('../api/google-books/fetch-book.js')).default
+    const mockPMap = (await import('p-map')).default
+    fetchUser.mockResolvedValue({
+      profile: { displayName: 'Reader' },
+      updates: [{ id: 'u1', type: 'userstatus', book: { title: 'T', isbn13: '9781111111111' } }],
+      jsonResponse: {},
+    })
+    fetchRecentlyReadBooks.mockResolvedValue({
+      books: null as unknown as never,
+      rawReviewsResponse: [],
+    })
+    generateGoodreadsSummary.mockResolvedValue('<p>x</p>')
+    vi.mocked(mockFetchBookFromGoogle).mockResolvedValue({
+      book: {
+        id: 'gb1',
+        volumeInfo: { title: 'T', imageLinks: { thumbnail: 'http://x/t.jpg' } },
+      },
+      rating: null,
+    })
+    mockPMap.mockImplementation(async (items: unknown[], mapper: (item: unknown, i: number) => Promise<unknown>) => {
+      const results: unknown[] = []
+      for (let i = 0; i < items.length; i++) {
+        results.push(await mapper(items[i], i))
+      }
+      return results
+    })
+    const resultPromise = syncGoodreadsData(documentStore)
+    await vi.runAllTimersAsync()
+    const result = await resultPromise
+    expect(result.result).toBe('SUCCESS')
+  })
+
   it('should handle database save errors', async () => {
     const mockUserData = {
       profile: { displayName: 'Test User' },
@@ -241,6 +289,28 @@ describe('syncGoodreadsData', () => {
     expect(result).toEqual({
       result: 'FAILURE',
       error: 'Database Error'
+    })
+  })
+
+  it('should surface non-Error database save failures', async () => {
+    const mockUserData = {
+      profile: { displayName: 'Test User' },
+      updates: [],
+      jsonResponse: {},
+    }
+    const mockRecentlyReadData = {
+      books: [],
+      rawReviewsResponse: {},
+    }
+    fetchUser.mockResolvedValue(mockUserData)
+    fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+    vi.mocked(documentStore.setDocument).mockRejectedValue('persist unavailable')
+
+    const result = await syncGoodreadsData(documentStore)
+
+    expect(result).toEqual({
+      result: 'FAILURE',
+      error: 'persist unavailable',
     })
   })
 
@@ -803,8 +873,10 @@ describe('syncGoodreadsData', () => {
           volumeInfo: {
             title: 'Test Book',
             authors: ['Test Author'],
+            infoLink: 'http://books.google.com/book',
             imageLinks: {
-              thumbnail: 'http://books.google.com/thumb.jpg'
+              smallThumbnail: 'http://books.google.com/small.jpg',
+              thumbnail: 'http://books.google.com/thumb.jpg',
             },
             industryIdentifiers: [
               { type: 'ISBN_13', identifier: '9780143127550' }
@@ -1693,6 +1765,133 @@ describe('syncGoodreadsData', () => {
       )
     })
 
+    it('should treat 429 with Quota exceeded message as quota when status is not RESOURCE_EXHAUSTED', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: {
+              isbn13: '9780143127550',
+              title: 'Test Book'
+            }
+          }
+        ],
+        jsonResponse: { user: 'data' }
+      }
+
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' }
+      }
+
+      const quotaMessageOnlyError = {
+        response: {
+          statusCode: 429,
+          body: JSON.stringify({
+            error: {
+              code: 429,
+              message: 'Quota exceeded for this project.',
+            },
+          }),
+        }
+      }
+
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockRejectedValue(quotaMessageOnlyError)
+      mockListStoredMedia.mockResolvedValue([])
+
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          const result = await mapper(items[i], i)
+          results.push(result)
+        }
+        return results
+      })
+
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+
+      expect(result.result).toBe('SUCCESS')
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Daily quota exceeded for Google Books API. Book fetch will be skipped.',
+        expect.objectContaining({
+          message: 'Quota exceeded for this project.',
+        })
+      )
+    })
+
+    it('should retry book fetch when Google returns 503 Service Unavailable', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: {
+              isbn13: '9780143127550',
+              title: 'Test Book'
+            }
+          }
+        ],
+        jsonResponse: { user: 'data' }
+      }
+
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' }
+      }
+
+      const serviceUnavailableError = {
+        response: {
+          statusCode: 503,
+          body: JSON.stringify({ error: { message: 'Backend unavailable' } })
+        }
+      }
+
+      const mockGoogleBookResult = {
+        book: {
+          id: 'google-book-id',
+          volumeInfo: {
+            title: 'Test Book',
+            imageLinks: {
+              thumbnail: 'http://books.google.com/thumb.jpg'
+            }
+          }
+        },
+        rating: null
+      }
+
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle
+        .mockRejectedValueOnce(serviceUnavailableError)
+        .mockResolvedValueOnce(mockGoogleBookResult)
+      mockListStoredMedia.mockResolvedValue([])
+
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          const result = await mapper(items[i], i)
+          results.push(result)
+        }
+        return results
+      })
+
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+
+      expect(result.result).toBe('SUCCESS')
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringMatching(/Rate limited \(503\)/),
+      )
+    })
+
     it('should match updates to fetched books by link', async () => {
       const mockUserData = {
         profile: { displayName: 'Test User' },
@@ -1806,6 +2005,50 @@ describe('syncGoodreadsData', () => {
       expect(result.data.collections.updates[0].cdnMediaURL).toBeDefined()
     })
 
+    it('skips title-key map when fetched Google volume omits title', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            link: 'https://goodreads.com/u/1',
+            book: { isbn13: '9780143127550', title: 'Has Title' },
+          },
+        ],
+        jsonResponse: { user: 'data' },
+      }
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' },
+      }
+      const mockGoogleBookResult = {
+        book: {
+          id: 'google-book-id',
+          volumeInfo: {
+            imageLinks: { thumbnail: 'http://books.google.com/thumb.jpg' },
+            industryIdentifiers: [{ type: 'ISBN_13', identifier: '9780143127550' }],
+          },
+        },
+        rating: null,
+      }
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockResolvedValue(mockGoogleBookResult)
+      mockListStoredMedia.mockResolvedValue([])
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          results.push(await mapper(items[i], i))
+        }
+        return results
+      })
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+      expect(result.result).toBe('SUCCESS')
+    })
+
     it('should handle books without thumbnails', async () => {
       const mockUserData = {
         profile: { displayName: 'Test User' },
@@ -1909,7 +2152,116 @@ describe('syncGoodreadsData', () => {
       )
     })
 
-    it('should extract ISBN from Google Books industryIdentifiers', async () => {
+    it('treats non-subset Google volumes JSON as no items for the type guard', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: { isbn13: '9780143127550', title: 'Bad JSON Shape' },
+          },
+        ],
+        jsonResponse: { user: 'data' },
+      }
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' },
+      }
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockResolvedValue(null)
+      mockGot.mockResolvedValue({ body: JSON.stringify({ totalItems: 0 }) })
+      mockListStoredMedia.mockResolvedValue([])
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          results.push(await mapper(items[i], i))
+        }
+        return results
+      })
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+      expect(result.result).toBe('SUCCESS')
+    })
+
+    it('returns null from volumes helper when response has empty items array', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: { isbn13: '9780143127550', title: 'No Hits' },
+          },
+        ],
+        jsonResponse: { user: 'data' },
+      }
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' },
+      }
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockResolvedValue(null)
+      mockGot.mockResolvedValue({ body: JSON.stringify({ items: [] }) })
+      mockListStoredMedia.mockResolvedValue([])
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          results.push(await mapper(items[i], i))
+        }
+        return results
+      })
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+      expect(result.result).toBe('SUCCESS')
+    })
+
+    it('logs title-only path when volumes search fails with no author on the update', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: {
+              isbn13: '9780143127550',
+              title: 'Solo Title',
+            },
+          },
+        ],
+        jsonResponse: { user: 'data' },
+      }
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' },
+      }
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockResolvedValue(null)
+      mockGot.mockRejectedValue(new Error('Network error'))
+      mockListStoredMedia.mockResolvedValue([])
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          results.push(await mapper(items[i], i))
+        }
+        return results
+      })
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
+      expect(result.result).toBe('SUCCESS')
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Error fetching book by title for Solo Title'),
+        expect.any(Error),
+      )
+    })
+
+    it('should extract ISBN_10 from Google Books when ISBN_13 is absent', async () => {
       const mockUserData = {
         profile: { displayName: 'Test User' },
         updates: [
@@ -1938,10 +2290,7 @@ describe('syncGoodreadsData', () => {
             imageLinks: {
               thumbnail: 'http://books.google.com/thumb.jpg'
             },
-            industryIdentifiers: [
-              { type: 'ISBN_13', identifier: '9780143127550' },
-              { type: 'ISBN_10', identifier: '0143127551' }
-            ]
+            industryIdentifiers: [{ type: 'ISBN_10', identifier: '0143127551' }],
           }
         },
         rating: null
@@ -1965,6 +2314,50 @@ describe('syncGoodreadsData', () => {
       await vi.runAllTimersAsync()
       const result = await resultPromise
 
+      expect(result.result).toBe('SUCCESS')
+    })
+
+    it('falls back to update ISBN when volume industryIdentifiers omit ISBN_13 and ISBN_10', async () => {
+      const mockUserData = {
+        profile: { displayName: 'Test User' },
+        updates: [
+          {
+            id: 'update1',
+            type: 'userstatus',
+            book: { isbn13: '9780143127550', title: 'Test Book' },
+          },
+        ],
+        jsonResponse: { user: 'data' },
+      }
+      const mockRecentlyReadData = {
+        books: [],
+        rawReviewsResponse: { reviews: 'data' },
+      }
+      const mockGoogleBookResult = {
+        book: {
+          id: 'google-book-id',
+          volumeInfo: {
+            title: 'Test Book',
+            imageLinks: { thumbnail: 'http://books.google.com/thumb.jpg' },
+            industryIdentifiers: [{ type: 'OTHER', identifier: 'nope' }],
+          },
+        },
+        rating: null,
+      }
+      fetchUser.mockResolvedValue(mockUserData)
+      fetchRecentlyReadBooks.mockResolvedValue(mockRecentlyReadData)
+      mockFetchBookFromGoogle.mockResolvedValue(mockGoogleBookResult)
+      mockListStoredMedia.mockResolvedValue([])
+      mockPMap.mockImplementation(async (items, mapper) => {
+        const results = []
+        for (let i = 0; i < items.length; i++) {
+          results.push(await mapper(items[i], i))
+        }
+        return results
+      })
+      const resultPromise = syncGoodreadsData(documentStore)
+      await vi.runAllTimersAsync()
+      const result = await resultPromise
       expect(result.result).toBe('SUCCESS')
     })
 

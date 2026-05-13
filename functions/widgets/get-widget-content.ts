@@ -14,8 +14,8 @@ import getSpotifyWidgetContent from './get-spotify-widget-content.js'
 import getSteamWidgetContent from './get-steam-widget-content.js'
 
 type InjectedWidgetHandler<TWidgetId extends WidgetId> = (
+  documentStore: DocumentStore,
   userId: string,
-  documentStore: DocumentStore
 ) => Promise<WidgetContentById[TWidgetId]>
 
 export type GetWidgetContentOptions = {
@@ -65,6 +65,6 @@ export const getWidgetContent = async (
     return { payload, meta: { githubAuthMode: authMode } }
   }
 
-  const payload = await widgetHandlerRegistry[widgetId](userId, documentStore)
+  const payload = await widgetHandlerRegistry[widgetId](documentStore, userId)
   return { payload }
 }

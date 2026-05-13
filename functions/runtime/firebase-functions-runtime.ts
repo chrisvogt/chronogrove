@@ -1,3 +1,4 @@
+import type { Request, Response } from 'express'
 import {
   beforeUserCreated,
   type AuthBlockingEvent,
@@ -13,7 +14,7 @@ export const FIREBASE_SCHEDULE = 'every day 02:00'
 type FirebaseHttpHandler = Parameters<typeof onRequest>[0]
 
 export const registerFirebaseHttpFunction = (
-  handler: (req: unknown, res: unknown) => void | Promise<void>,
+  handler: (req: Request, res: Response) => void | Promise<void>,
   secrets: readonly unknown[]
 ) =>
   onRequest(

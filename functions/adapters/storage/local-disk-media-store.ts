@@ -25,8 +25,42 @@ async function listFilesRecursive(rootDirectory: string, currentDirectory = ''):
   return nestedFiles.flat()
 }
 
+function stringifyUnknown(reason: unknown): string {
+  if (reason instanceof Error) {
+    return reason.message
+  }
+  if (typeof reason === 'string') {
+    return reason
+  }
+  try {
+    return JSON.stringify(reason)
+  } catch {
+    return '[object]'
+  }
+}
+
 function rejectAsError(reason: unknown): Error {
-  return reason instanceof Error ? reason : new Error(String(reason))
+  return reason instanceof Error ? reason : new Error(stringifyUnknown(reason))
+}
+
+function subscribeWriteStreamFinish(
+  writeStream: ReturnType<typeof createWriteStream>,
+  destinationPath: string,
+  resolve: () => void,
+  reject: (e: Error) => void,
+): void {
+  writeStream.on('finish', () => {
+    writeStream.close((closeErr) => {
+      if (closeErr) {
+        reject(new Error(`Failed to upload ${destinationPath}: ${closeErr.message}`))
+        return
+      }
+      resolve()
+    })
+  })
+  writeStream.on('error', (err) => {
+    reject(new Error(`Failed to upload ${destinationPath}: ${err.message}`))
+  })
 }
 
 async function downloadHttpsToFile(
@@ -42,21 +76,7 @@ async function downloadHttpsToFile(
       .get(mediaURL, (res) => {
         const writeStream = createWriteStream(absoluteDestinationPath)
         res.pipe(writeStream)
-
-        const onFinish = () => {
-          writeStream.close((closeErr) => {
-            if (closeErr) {
-              reject(new Error(`Failed to upload ${destinationPath}: ${closeErr.message}`))
-              return
-            }
-            resolve()
-          })
-        }
-
-        writeStream.on('finish', onFinish)
-        writeStream.on('error', (err) => {
-          reject(new Error(`Failed to upload ${destinationPath}: ${err.message}`))
-        })
+        subscribeWriteStreamFinish(writeStream, destinationPath, resolve, reject)
       })
       .on('error', (err) => {
         reject(new Error(`Failed to download media for ${id}: ${err.message}`))
@@ -110,3 +130,5 @@ export class LocalDiskMediaStore implements MediaStore {
     return path.join(this.rootDirectory, normalizedPath)
   }
 }
+
+export { stringifyUnknown, rejectAsError }

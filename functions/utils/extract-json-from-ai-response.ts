@@ -55,7 +55,7 @@ const extractJsonFromAiResponse = <T extends JsonObject = JsonObject>(
   //    does not truncate the capture before jsonrepair can fix the payload.
   const fencePatterns = [/```json\s*([\s\S]*)```/i, /```\s*([\s\S]*?)```/]
   for (const re of fencePatterns) {
-    const m = str.match(re)
+    const m = re.exec(str)
     if (m?.[1]) {
       const parsed = tryParseJsonObject<T>(m[1])
       if (parsed) {

@@ -37,10 +37,10 @@ describe('formatUnknownFailureMessage', () => {
     expect(formatUnknownFailureMessage({ message: 99 })).toBe('{"message":99}')
   })
 
-  it('falls back to String when JSON.stringify fails', () => {
+  it('returns a fixed label when JSON.stringify fails (e.g. circular structure)', () => {
     const circular: Record<string, unknown> = { a: 1 }
     circular.self = circular
-    expect(formatUnknownFailureMessage(circular)).toBe('[object Object]')
+    expect(formatUnknownFailureMessage(circular)).toBe('Unserializable error')
   })
 })
 

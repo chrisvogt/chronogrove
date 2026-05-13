@@ -7,8 +7,8 @@ import type {
 import { toDateOrDefault, toUserWidgetContentPath } from './widget-document-store.js'
 
 const getGoodreadsWidgetContent = async (
+  documentStore: DocumentStore,
   userId: string = getDefaultWidgetUserId(),
-  documentStore: DocumentStore
 ): Promise<GoodreadsWidgetContent> => {
   const goodreadsWidgetContentPath = toUserWidgetContentPath(userId, 'goodreads')
   const data =

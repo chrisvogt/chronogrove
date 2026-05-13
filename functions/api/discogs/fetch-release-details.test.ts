@@ -244,4 +244,11 @@ describe('fetchReleaseDetails', () => {
     expect(result).toEqual(mockReleaseData)
     expect(fetch).not.toHaveBeenCalled()
   })
+
+  it('buildReleaseFetchUrl throws when token is required but api key is missing', async () => {
+    const { buildReleaseFetchUrl } = await import('./fetch-release-details.js')
+    expect(() =>
+      buildReleaseFetchUrl('https://api.discogs.com/releases/1', undefined),
+    ).toThrow('Discogs API key is required when the release URL has no token parameter.')
+  })
 })

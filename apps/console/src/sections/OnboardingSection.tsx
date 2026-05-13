@@ -39,6 +39,15 @@ type UsernameStatus =
   | 'error'
 type DnsStatus = 'idle' | 'checking' | 'verified' | 'not-verified' | 'error'
 
+function queueUsernameAvailabilityCheck(
+  checkFn: (username: string) => Promise<unknown>,
+  username: string,
+) {
+  queueMicrotask(() => {
+    checkFn(username).catch(() => undefined)
+  })
+}
+
 function oauthIntegrationLabel(id: string): 'Discogs' | 'GitHub' | 'Flickr' {
   if (id === 'discogs') return 'Discogs'
   if (id === 'github') return 'GitHub'
@@ -195,9 +204,7 @@ export function OnboardingSection() {
         setDomain(p.customDomain ?? '')
         setDnsStatus('idle')
         if (savedUsername.length >= 3) {
-          queueMicrotask(() => {
-            checkUsername(savedUsername).catch(() => {})
-          })
+          queueUsernameAvailabilityCheck(checkUsername, savedUsername)
         }
       } catch {
         if (!cancelled) setSaveError('Could not load saved progress. You can still continue.')

@@ -7,6 +7,7 @@ import {
   buildParameterString,
   buildSignatureBaseString,
   buildSigningKey,
+  compareOAuthParamUtf8Octets,
   flickrGetAccessToken,
   flickrGetRequestToken,
   flickrSignQuery,
@@ -28,7 +29,21 @@ describe('flickr-oauth1a', () => {
     expect(oauthPercentEncode('a~b')).toBe('a~b')
   })
 
-  it('buildParameterString sorts lexicographically by key then value', () => {
+  it('compareOAuthParamUtf8Octets uses UTF-8 octet order (not string/code-unit collation)', () => {
+    expect(compareOAuthParamUtf8Octets('', '')).toBe(0)
+    expect(compareOAuthParamUtf8Octets('a', 'a')).toBe(0)
+    expect(compareOAuthParamUtf8Octets('', 'x')).toBeLessThan(0)
+    expect(compareOAuthParamUtf8Octets('x', '')).toBeGreaterThan(0)
+    // Common prefix then shorter string sorts first (0x61 vs 0x61 0x62)
+    expect(compareOAuthParamUtf8Octets('a', 'ab')).toBeLessThan(0)
+    expect(compareOAuthParamUtf8Octets('ab', 'a')).toBeGreaterThan(0)
+    // First differing byte: 'aa' (61 61) before 'b' (62)
+    expect(compareOAuthParamUtf8Octets('aa', 'b')).toBeLessThan(0)
+    // ASCII 'a' (61) before emoji leading byte F0
+    expect(compareOAuthParamUtf8Octets('a', '😀')).toBeLessThan(0)
+  })
+
+  it('buildParameterString sorts by UTF-8 octet order (RFC 5849) by key then value', () => {
     const s = buildParameterString({
       z: '2',
       a: '1',
@@ -109,6 +124,19 @@ describe('flickr-oauth1a', () => {
     expect(() => decodeURIComponent(fullname)).toThrow(URIError)
   })
 
+  it('sortParamPairs orders by UTF-8 octets, not locale rules', () => {
+    // Latin "a" (0x61) precedes Cyrillic "а" U+0430 (0xD0 0xB0) in octet order
+    expect(
+      sortParamPairs([
+        ['а', '1'],
+        ['a', '2'],
+      ])
+    ).toEqual([
+      ['a', '2'],
+      ['а', '1'],
+    ])
+  })
+
   it('sortParamPairs orders duplicate keys by value', () => {
     expect(
       sortParamPairs([
@@ -141,7 +169,7 @@ describe('flickr-oauth1a', () => {
     ])
   })
 
-  it('sortedQueryFromParams emits lexicographic query pairs', () => {
+  it('sortedQueryFromParams emits UTF-8-octet-sorted query pairs', () => {
     const qs = sortedQueryFromParams({ z: '9', a: '1' })
     expect(qs).toBe(`${oauthPercentEncode('a')}=1&${oauthPercentEncode('z')}=9`)
   })

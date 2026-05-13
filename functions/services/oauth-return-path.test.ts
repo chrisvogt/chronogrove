@@ -96,6 +96,12 @@ describe('oauth-return-path', () => {
     expect(withGitHubOAuthFlash('/x', 'error', 'bad')).toBe('/x?oauth=github&status=error&reason=bad')
   })
 
+  it('treats a trailing # with no fragment as no hash (joined without empty #suffix)', () => {
+    expect(withFlickrOAuthFlash('/done#', 'success')).toBe('/done?oauth=flickr&status=success')
+    expect(withDiscogsOAuthFlash('/done#', 'success')).toBe('/done?oauth=discogs&status=success')
+    expect(withGitHubOAuthFlash('/done#', 'success')).toBe('/done?oauth=github&status=success')
+  })
+
   it('withGitHubOAuthFlash merges query, preserves hash, and handles error reason edge cases', () => {
     expect(withGitHubOAuthFlash('/?providers=open', 'success')).toBe(
       '/?providers=open&oauth=github&status=success',

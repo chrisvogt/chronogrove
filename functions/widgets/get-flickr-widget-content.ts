@@ -8,8 +8,8 @@ import type {
 import { toDateOrDefault, toUserWidgetContentPath } from './widget-document-store.js'
 
 const getFlickrWidgetContent = async (
+  documentStore: DocumentStore,
   userId: string = getDefaultWidgetUserId(),
-  documentStore: DocumentStore
 ): Promise<FlickrWidgetContent> => {
   const logger = getLogger()
   try {

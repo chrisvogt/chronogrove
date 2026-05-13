@@ -91,7 +91,7 @@ export function formatUnknownFailureMessage(err: unknown): string {
   try {
     return JSON.stringify(err)
   } catch {
-    return String(err)
+    return 'Unserializable error'
   }
 }
 
@@ -171,7 +171,7 @@ export function parseManualSyncProviderSegmentFromRequest(
   const re = route === 'stream' ? MANUAL_SYNC_PROVIDER_FROM_PATH_STREAM : MANUAL_SYNC_PROVIDER_FROM_PATH_JSON
   const tryPathname = (pathname: string): string | undefined => {
     const pathStr = pathname.split('?')[0] ?? ''
-    const m = pathStr.match(re)
+    const m = re.exec(pathStr)
     const segment = m?.[1]?.trim()
     return segment ? segment.toLowerCase() : undefined
   }
@@ -1006,7 +1006,8 @@ export function createExpressApp({
           return
         }
 
-        const token = extractBearerToken(req.headers.authorization) as string
+        // Invariant: when getSessionAuthError is null, extractBearerToken yields a non-empty string.
+        const token = extractBearerToken(req.headers.authorization)!
         const decodedToken = await authService.verifyIdToken(token)
 
         if (!isAllowedEmail(decodedToken.email)) {

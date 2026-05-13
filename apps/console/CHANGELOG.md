@@ -7,6 +7,16 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.29] - 2026-05-12
+
+### Changed
+
+- **Settings / onboarding / overview** — Sonar-oriented cleanup: avoid **`void`** on discarded promises (**`SettingsProfileIdentity`**); reduce nested callbacks in **`OnboardingSection`** (extracted **`queueUsernameAvailabilityCheck`**); **`OverviewProviderCard`** props are **`Readonly<…>`** and the provider status indicator uses a real **`<img alt={…}>`** (transparent pixel) for assistive tech instead of **`role="img"`** on a span.
+
+### Tests
+
+- **`SettingsProfileIdentity`** — **`vitest run --coverage`** satisfies per-file thresholds (including **functions ≥ 92%**): fire-and-forget **`checkUsername`** / **`checkDns`** / **`load`** use **`void`** instead of no-op **`.catch`** callbacks (those helpers resolve and swallow errors internally); profile **`load`** trusts the **`useEffect`** guard for **`apiSessionReady`** / **`userRef`**; **`profileIdentityLoadFailureMessage`** is exported for unit tests; **`null`** **`user`** asserts **`GET /api/onboarding/progress`** is not called.
+
 ## [0.6.28] - 2026-05-11
 
 ### Changed

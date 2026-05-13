@@ -39,7 +39,7 @@ describe('getDiscogsWidgetContent', () => {
       },
     })
 
-    const result = await getDiscogsWidgetContent('chrisvogt', documentStore)
+    const result = await getDiscogsWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       collections: {
@@ -69,7 +69,7 @@ describe('getDiscogsWidgetContent', () => {
   it('should handle missing data gracefully', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(null)
 
-    const result = await getDiscogsWidgetContent('chrisvogt', documentStore)
+    const result = await getDiscogsWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       meta: {},
@@ -83,7 +83,7 @@ describe('getDiscogsWidgetContent', () => {
       },
     })
 
-    const result = await getDiscogsWidgetContent('chrisvogt', documentStore)
+    const result = await getDiscogsWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       collections: {
@@ -101,7 +101,7 @@ describe('getDiscogsWidgetContent', () => {
       },
     })
 
-    const result = await getDiscogsWidgetContent('chrisvogt', documentStore)
+    const result = await getDiscogsWidgetContent(documentStore, 'chrisvogt')
 
     expect(result).toEqual({
       collections: {

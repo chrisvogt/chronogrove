@@ -95,8 +95,10 @@ function flickrFieldString(value: unknown): string | undefined {
   if (value == null) {
     return undefined
   }
-  const t = typeof value
-  if (t === 'string' || t === 'number' || t === 'boolean') {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value)
   }
   return undefined

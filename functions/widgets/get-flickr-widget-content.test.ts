@@ -42,7 +42,7 @@ describe('getFlickrWidgetContent', () => {
 
     vi.mocked(documentStore.getDocument).mockResolvedValue(mockData)
 
-    const result = await getFlickrWidgetContent('user123', documentStore)
+    const result = await getFlickrWidgetContent(documentStore, 'user123')
 
     expect(documentStore.getDocument).toHaveBeenCalledWith('users/user123/flickr/widget-content')
     expect(result.collections).toEqual(mockData.collections)
@@ -54,7 +54,7 @@ describe('getFlickrWidgetContent', () => {
   it('should throw error when document does not exist', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(null)
 
-    await expect(getFlickrWidgetContent('user123', documentStore)).rejects.toThrow(
+    await expect(getFlickrWidgetContent(documentStore, 'user123')).rejects.toThrow(
       'No Flickr data found in DocumentStore'
     )
   })
@@ -63,7 +63,7 @@ describe('getFlickrWidgetContent', () => {
     const documentStoreError = new Error('DocumentStore connection failed')
     vi.mocked(documentStore.getDocument).mockRejectedValue(documentStoreError)
 
-    await expect(getFlickrWidgetContent('user123', documentStore)).rejects.toThrow(
+    await expect(getFlickrWidgetContent(documentStore, 'user123')).rejects.toThrow(
       'DocumentStore connection failed'
     )
     expect(logger.error).toHaveBeenCalledWith('Error getting Flickr widget content:', documentStoreError)
@@ -73,7 +73,7 @@ describe('getFlickrWidgetContent', () => {
     const networkError = new Error('Network timeout')
     vi.mocked(documentStore.getDocument).mockRejectedValue(networkError)
 
-    await expect(getFlickrWidgetContent('user123', documentStore)).rejects.toThrow('Network timeout')
+    await expect(getFlickrWidgetContent(documentStore, 'user123')).rejects.toThrow('Network timeout')
     expect(logger.error).toHaveBeenCalledWith('Error getting Flickr widget content:', networkError)
   })
 
@@ -81,14 +81,14 @@ describe('getFlickrWidgetContent', () => {
     const permissionError = new Error('Permission denied')
     vi.mocked(documentStore.getDocument).mockRejectedValue(permissionError)
 
-    await expect(getFlickrWidgetContent('user123', documentStore)).rejects.toThrow('Permission denied')
+    await expect(getFlickrWidgetContent(documentStore, 'user123')).rejects.toThrow('Permission denied')
     expect(logger.error).toHaveBeenCalledWith('Error getting Flickr widget content:', permissionError)
   })
 
   it('should handle malformed document data', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(null)
 
-    await expect(getFlickrWidgetContent('user123', documentStore)).rejects.toThrow(
+    await expect(getFlickrWidgetContent(documentStore, 'user123')).rejects.toThrow(
       'No Flickr data found in DocumentStore'
     )
   })
@@ -96,7 +96,7 @@ describe('getFlickrWidgetContent', () => {
   it('should handle empty document data', async () => {
     vi.mocked(documentStore.getDocument).mockResolvedValue(undefined)
 
-    await expect(getFlickrWidgetContent('user123', documentStore)).rejects.toThrow(
+    await expect(getFlickrWidgetContent(documentStore, 'user123')).rejects.toThrow(
       'No Flickr data found in DocumentStore'
     )
   })
@@ -111,7 +111,7 @@ describe('getFlickrWidgetContent', () => {
 
     vi.mocked(documentStore.getDocument).mockResolvedValue(partialData)
 
-    const result = await getFlickrWidgetContent('user123', documentStore)
+    const result = await getFlickrWidgetContent(documentStore, 'user123')
 
     expect(result).toEqual(partialData)
     expect(result.collections.photos).toEqual([])
@@ -130,7 +130,7 @@ describe('getFlickrWidgetContent', () => {
 
     vi.mocked(documentStore.getDocument).mockResolvedValue(dataWithNulls)
 
-    const result = await getFlickrWidgetContent('user123', documentStore)
+    const result = await getFlickrWidgetContent(documentStore, 'user123')
 
     expect(result).toEqual(dataWithNulls)
     expect(result.collections.photos).toBeNull()
@@ -147,7 +147,7 @@ describe('getFlickrWidgetContent', () => {
 
     vi.mocked(documentStore.getDocument).mockResolvedValue(dataWithUndefined)
 
-    const result = await getFlickrWidgetContent('user123', documentStore)
+    const result = await getFlickrWidgetContent(documentStore, 'user123')
 
     expect(result).toEqual(dataWithUndefined)
     expect(result.collections.photos).toBeUndefined()

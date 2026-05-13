@@ -10,7 +10,8 @@ function toCollectionAndDocument(path: string): { collectionPath: string; docume
     throw new Error(`Invalid document path: ${path}`)
   }
 
-  const documentId = segments[segments.length - 1]!
+  // With length ≥2 and filter(Boolean), the last segment is always defined.
+  const documentId = segments[segments.length - 1] as string
 
   return {
     collectionPath: segments.slice(0, -1).join('/'),

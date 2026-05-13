@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **OAuth 1.0a** — **`sortParamPairs`** / **`buildSignatureBaseString`** use **`compareOAuthParamUtf8Octets`** (UTF-8 octet order per RFC 5849 §3.4.1.3.2) instead of **`localeCompare`**, so HMAC-SHA1 base strings match the spec regardless of runtime locale. Discogs **`oauth1AuthorizationHeader`** sorts parameter names the same way.
+
+### Tests
+
+- **`flickr-oauth1a.test.ts`** — **`compareOAuthParamUtf8Octets`**: equality, empty vs non-empty, common-prefix length tie-break, first-byte order, ASCII vs multi-byte UTF-8; **`sortParamPairs`** Cyrillic vs Latin key order.
+
+## [0.31.1] - 2026-05-12
+
+### Changed
+
+- **Quality / maintainability** — Refactors driven by static analysis (Sonar): replace **`void`**-discarded promises with explicit promise handling in the operator console; improve accessibility (**`OverviewSection`** status dot uses **`<img alt>`**); **`Readonly`** component props where appropriate; tighten **Goodreads** / **Instagram** type unions; reorder widget **`get*WidgetContent(documentStore, userId?)`** signatures so default parameters are last; **`registerFirebaseHttpFunction`** handlers use Express **`Request` / `Response`** (removes redundant casts in **`index.ts`**); shared helpers for **Goodreads** sync retries and error formatting; **onboarding wizard** Firestore transaction split into smaller functions; **GitHub** credential refresh extracted; **DNS CNAME** / **rate limiter** / **local disk media** hardening and clearer error strings; **`formatUnknownFailureMessage`** uses a fixed label when **`JSON.stringify`** throws (circular structures).
+
+### Tests
+
+- **Unit coverage** — **`fetch-book`** (`maxRetries === 0`); **`buildReleaseFetchUrl`** missing API key; **`stringifyUnknown` / `rejectAsError`** (local disk); **`errorMessageFromUnknown` / `parseGotHttpErrorBody`** (Goodreads sync); **Steam** persist failure with a non-serializable rejection; **`formatUnknownFailureMessage`** circular-reference expectation updated.
+- **Vitest coverage** — Project **line and statement coverage at 100%** with branch coverage above configured thresholds (Codecov **patch** target remains **99%**).
+
 ## [0.31.0] - 2026-05-11
 
 ### Added

@@ -42,7 +42,106 @@ import type {
 import type { GoodreadsWidgetDocument } from '../types/widget-content.js'
 import type { SyncJobExecutionOptions, SyncProgressReporter } from '../types/sync-pipeline.js'
 
-const toBookMediaDestinationPath = id => `books/${id}-thumbnail.jpg`
+type GotLikeHttpError = {
+  response?: { statusCode?: number; body?: unknown }
+  statusCode?: number
+}
+
+function errorMessageFromUnknown(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === 'string') {
+    return error
+  }
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return 'Unknown error'
+  }
+}
+
+function parseGotHttpErrorBody(error: GotLikeHttpError): unknown {
+  const raw = error.response?.body
+  if (raw == null) {
+    return null
+  }
+  if (typeof raw !== 'string') {
+    return raw
+  }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+type GoogleBooksApiErrorShape = {
+  error?: {
+    status?: string
+    code?: number
+    message?: string
+    details?: Array<{ metadata?: { quota_limit_value?: unknown } }>
+  }
+}
+
+function isGoogleBooksQuotaExceededFromBody(errorBody: GoogleBooksApiErrorShape | null): boolean {
+  if (!errorBody?.error) {
+    return false
+  }
+  return (
+    errorBody.error.status === 'RESOURCE_EXHAUSTED' ||
+    (errorBody.error.code === 429 && Boolean(errorBody.error.message?.includes('Quota exceeded')))
+  )
+}
+
+async function fetchGoogleBooksOperationWithRetry<T>(
+  fetchFn: () => Promise<T>,
+  logger: ReturnType<typeof getLogger>,
+  maxRetries = 3,
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fetchFn()
+    } catch (rawError: unknown) {
+      const error = rawError as GotLikeHttpError
+      const statusCode = error.response?.statusCode ?? error.statusCode
+      const errorBody = parseGotHttpErrorBody(error) as GoogleBooksApiErrorShape | null
+
+      if (isGoogleBooksQuotaExceededFromBody(errorBody)) {
+        logger.error('Daily quota exceeded for Google Books API. Book fetch will be skipped.', {
+          message: errorBody?.error?.message,
+          quota_limit: errorBody?.error?.details?.[0]?.metadata?.quota_limit_value,
+        })
+        throw rawError
+      }
+
+      if ((statusCode === 429 || statusCode === 503) && attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000
+        logger.warn(
+          `Rate limited (${statusCode}) for book fetch, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`,
+        )
+        await new Promise((resolve) => setTimeout(resolve, waitTime))
+        continue
+      }
+
+      throw rawError
+    }
+  }
+
+  throw new Error('Google Books fetch retries exhausted')
+}
+
+function getIsbnFromGoodreadsBookFields(
+  book: GoodreadsReviewBook | GoodreadsUserStatusBook | undefined,
+): string | null {
+  if (book == null) {
+    return null
+  }
+  return getXmlTextOrNull(book.isbn13) ?? getXmlTextOrNull(book.isbn)
+}
+
+const toBookMediaDestinationPath = (id: string) => `books/${id}-thumbnail.jpg`
 
 const transformBookData = (
   book: GoodreadsRecentlyReadBookFromGoogle,
@@ -65,7 +164,6 @@ const transformBookData = (
     rating,
     goodreadsDescription,
     isbn,
-    readAt,
   } = book
 
   const mediaDestinationPath = toBookMediaDestinationPath(id)
@@ -82,7 +180,6 @@ const transformBookData = (
     pageCount,
     previewLink,
     rating,
-    ...(readAt != null && readAt !== '' ? { readAt } : {}),
     smallThumbnail: smallThumbnail ? convertToHttps(smallThumbnail) : '',
     subtitle,
     thumbnail: thumbnail ? convertToHttps(thumbnail) : '',
@@ -179,8 +276,8 @@ const processUpdatesWithMedia = async (
         })
       }
       
-      // Add this update to the list of updates needing this book
-      uniqueBooksToFetch.get(key).updates.push(update)
+      const bucket = uniqueBooksToFetch.get(key)!
+      bucket.updates.push(update)
     })
     
     // Fetch each unique book only once with concurrency control and delays to avoid rate limiting
@@ -193,101 +290,67 @@ const processUpdatesWithMedia = async (
         }
         
         let result: GoogleBooksFetchByIsbnResult | null = null
-        
-        // Helper function to fetch with retry and exponential backoff
-        const fetchWithRetry = async (fetchFn, maxRetries = 3) => {
-          for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-              return await fetchFn()
-            } catch (error) {
-              const statusCode = error.response?.statusCode || error.statusCode
-              const errorBody = error.response?.body ? (typeof error.response.body === 'string' ? JSON.parse(error.response.body) : error.response.body) : null
-              const isQuotaExceeded = errorBody?.error?.status === 'RESOURCE_EXHAUSTED' || 
-                                      (errorBody?.error?.code === 429 && 
-                                       errorBody?.error?.message?.includes('Quota exceeded'))
-              
-              // Don't retry on daily quota exceeded - it won't help
-              if (isQuotaExceeded) {
-                logger.error('Daily quota exceeded for Google Books API. Book fetch will be skipped.', {
-                  message: errorBody?.error?.message,
-                  quota_limit: errorBody?.error?.details?.[0]?.metadata?.quota_limit_value
-                })
-                throw error // Re-throw to be caught by outer try/catch
-              }
-              
-              // Retry on 429 (rate limit) or 503 (Service Unavailable) - but not quota exceeded
-              if ((statusCode === 429 || statusCode === 503) && attempt < maxRetries) {
-                const waitTime = Math.pow(2, attempt) * 1000 // Exponential backoff: 2s, 4s, 8s
-                logger.warn(`Rate limited (${statusCode}) for book fetch, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`)
-                await new Promise(resolve => setTimeout(resolve, waitTime))
-                continue
-              }
-              
-              // For other errors or max retries reached, throw
-              throw error
-            }
-          }
-        }
-        
+
         // Try fetching by ISBN first (if available)
         if (isbn) {
           try {
-            result = await fetchWithRetry(() => fetchBookFromGoogle({ isbn }))
+            result = await fetchGoogleBooksOperationWithRetry(
+              () => fetchBookFromGoogle({ isbn }),
+              logger,
+            )
           } catch (error) {
             logger.error(`Error fetching book by ISBN ${isbn} after retries:`, error)
             result = null
           }
         }
-        
+
         // If ISBN search fails or no ISBN, try searching by title + author
-        if (!result || !result.book) {
-          if (book && book.title) {
-            // Try to get author name - different structure for review vs userstatus updates
-            const authorName = book.author?.name || book.author?.displayName || book.author?.sortName
-            
-            const titleForQuery =
-              simplifyTitleForGoogleBooksQuery(book.title) || book.title.trim()
-            let searchQuery
-            if (authorName) {
-              searchQuery = `intitle:${titleForQuery} inauthor:${authorName}`
-            } else {
-              searchQuery = `intitle:${titleForQuery}`
-            }
-            
-            try {
-              const googleBooksAPIKey = getGoogleBooksApiKey()
-              result = await fetchWithRetry(async () => {
-                const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
-                  searchParams: {
-                    q: searchQuery,
-                    key: googleBooksAPIKey,
-                    country: 'US'
-                  }
-                })
-                const parsed: unknown = JSON.parse(body)
-                const foundBook: GoogleBooksVolumeSubset | undefined = isGoogleBooksVolumesResponseSubset(parsed)
-                  ? parsed.items?.[0]
-                  : undefined
-                
-                if (foundBook) {
-                  return {
-                    book: foundBook,
-                    rating: null,
-                  }
-                }
-                return null
+        if (!result?.book) {
+          const authorName =
+            book.author?.name ?? book.author?.displayName ?? book.author?.sortName
+
+          const titleForQuery = simplifyTitleForGoogleBooksQuery(book.title) || book.title.trim()
+          const searchQuery = authorName
+            ? `intitle:${titleForQuery} inauthor:${authorName}`
+            : `intitle:${titleForQuery}`
+
+          try {
+            const googleBooksAPIKey = getGoogleBooksApiKey()
+            result = await fetchGoogleBooksOperationWithRetry(async () => {
+              const { body } = await got('https://www.googleapis.com/books/v1/volumes', {
+                searchParams: {
+                  q: searchQuery,
+                  key: googleBooksAPIKey,
+                  country: 'US',
+                },
               })
-              
-              if (result && result.book) {
-                logger.info(`Found book by ${authorName ? 'title/author' : 'title'} for update: ${book.title}`)
+              const parsed: unknown = JSON.parse(body)
+              const foundBook: GoogleBooksVolumeSubset | undefined =
+                isGoogleBooksVolumesResponseSubset(parsed) ? parsed.items?.[0] : undefined
+
+              if (foundBook) {
+                return {
+                  book: foundBook,
+                  rating: null,
+                }
               }
-            } catch (error) {
-              logger.error(`Error fetching book by ${authorName ? 'title/author' : 'title'} for ${book.title} after retries:`, error)
-              result = null
+              return null
+            }, logger)
+
+            if (result?.book) {
+              logger.info(
+                `Found book by ${authorName ? 'title/author' : 'title'} for update: ${book.title}`,
+              )
             }
+          } catch (error) {
+            logger.error(
+              `Error fetching book by ${authorName ? 'title/author' : 'title'} for ${book.title} after retries:`,
+              error,
+            )
+            result = null
           }
         }
-        
+
         return {
           googleBookResult: result,
           update, // Keep reference to first update for matching
@@ -310,7 +373,7 @@ const processUpdatesWithMedia = async (
           entry,
         ): entry is typeof entry & {
           googleBookResult: GoogleBooksFetchByIsbnResult & { book: GoogleBooksVolumeSubset }
-        } => Boolean(entry.googleBookResult && entry.googleBookResult.book),
+        } => Boolean(entry.googleBookResult?.book),
       )
       .flatMap(({ googleBookResult, updates, isbn: updateISBN }) => {
         // Try to get ISBN from Google Books response first
@@ -378,12 +441,9 @@ const processUpdatesWithMedia = async (
     const fetchedBooksByTitle = new Map<string, FetchedBookWithMetadata>()
     
     fetchedBooksWithMetadata.forEach(book => {
-      // Map by update object reference (most reliable for exact matches)
-      if (book.update) {
-        fetchedBooksByUpdate.set(book.update, book)
-      }
+      fetchedBooksByUpdate.set(book.update, book)
       // Also map by update link (unique identifier)
-      if (book.update && book.update.link) {
+      if (book.update.link) {
         fetchedBooksByLink.set(book.update.link, book)
       }
       // Map by ISBN from Google Books response
@@ -393,21 +453,10 @@ const processUpdatesWithMedia = async (
         fetchedBooksByISBN.set(isbnStr.replace(/-/g, ''), book)
       }
       // Also map by the update's original ISBN (in case it differs from Google Books)
-      if (book.update) {
-        let updateISBN = null
-        if (book.update.type === 'userstatus' && book.update.book) {
-          const isbn13 = book.update.book.isbn13
-          const isbn10 = book.update.book.isbn
-          updateISBN = getXmlTextOrNull(isbn13) ?? getXmlTextOrNull(isbn10)
-        } else if (book.update.type === 'review' && book.update.book) {
-          const isbn13 = book.update.book.isbn13
-          const isbn10 = book.update.book.isbn
-          updateISBN = getXmlTextOrNull(isbn13) ?? getXmlTextOrNull(isbn10)
-        }
-        if (updateISBN && String(updateISBN) !== String(book.isbn)) {
-          fetchedBooksByISBN.set(String(updateISBN), book)
-          fetchedBooksByISBN.set(String(updateISBN).replace(/-/g, ''), book)
-        }
+      const updateISBN = getIsbnFromGoodreadsBookFields(book.update.book)
+      if (updateISBN && String(updateISBN) !== String(book.isbn)) {
+        fetchedBooksByISBN.set(String(updateISBN), book)
+        fetchedBooksByISBN.set(String(updateISBN).replace(/-/g, ''), book)
       }
       // Also map by title for cases where ISBN is missing (like review updates)
       if (book.title) {
@@ -432,26 +481,18 @@ const processUpdatesWithMedia = async (
       }
       
       // Fallback to ISBN matching
-      if (!fetchedBook) {
-        let isbn: string | null = null
-        if (update.type === 'userstatus' && update.book) {
-          const isbn13 = getXmlTextOrNull(update.book.isbn13)
-          const isbn10 = getXmlTextOrNull(update.book.isbn)
-          isbn = isbn13 ?? isbn10
-        } else if (update.type === 'review' && update.book) {
-          const isbn13 = getXmlTextOrNull(update.book.isbn13)
-          const isbn10 = getXmlTextOrNull(update.book.isbn)
-          isbn = isbn13 ?? isbn10
-        }
+      if (!fetchedBook && update.book) {
+        const isbn = getIsbnFromGoodreadsBookFields(update.book)
 
         if (isbn) {
           const isbnStr = String(isbn)
-          fetchedBook = fetchedBooksByISBN.get(isbnStr) || fetchedBooksByISBN.get(isbnStr.replace(/-/g, ''))
+          fetchedBook =
+            fetchedBooksByISBN.get(isbnStr) ?? fetchedBooksByISBN.get(isbnStr.replace(/-/g, ''))
         }
       }
-      
+
       // Fallback to title matching (for review updates without ISBN)
-      if (!fetchedBook && update.book && update.book.title) {
+      if (!fetchedBook && update.book?.title) {
         const titleKey = update.book.title.toLowerCase().trim()
         fetchedBook = fetchedBooksByTitle.get(titleKey)
       }
@@ -503,7 +544,7 @@ const fetchAllGoodreadsPromises = async (
     } catch (error: unknown) {
       logger.warn(
         'Could not paginate full Goodreads read shelf for AI summary; summary will use widget books only.',
-        error instanceof Error ? error.message : error,
+        errorMessageFromUnknown(error),
       )
     }
 
@@ -528,7 +569,7 @@ const fetchAllGoodreadsPromises = async (
     }
   } catch (error: unknown) {
     return {
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessageFromUnknown(error),
     }
   }
 }
@@ -628,5 +669,7 @@ const syncGoodreadsData = async (
     data: widgetContent
   }
 }
+
+export { errorMessageFromUnknown, getIsbnFromGoodreadsBookFields, parseGotHttpErrorBody }
 
 export default syncGoodreadsData

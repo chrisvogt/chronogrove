@@ -9,7 +9,7 @@ vi.mock('https', () => ({
   get: vi.fn(),
 }))
 
-import { LocalDiskMediaStore } from './local-disk-media-store.js'
+import { LocalDiskMediaStore, stringifyUnknown, rejectAsError } from './local-disk-media-store.js'
 
 describe('LocalDiskMediaStore', () => {
   let rootDirectory: string
@@ -176,5 +176,25 @@ describe('LocalDiskMediaStore', () => {
 
     // Should fail before it even tries to download.
     expect(mockHttpsGet).not.toHaveBeenCalled()
+  })
+})
+
+describe('stringifyUnknown and rejectAsError', () => {
+  it('formats Error, string, and JSON-serializable values', () => {
+    expect(stringifyUnknown(new Error('oops'))).toBe('oops')
+    expect(stringifyUnknown('plain')).toBe('plain')
+    expect(stringifyUnknown({ n: 1 })).toBe('{"n":1}')
+  })
+
+  it('returns a placeholder when JSON.stringify fails (circular structure)', () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    expect(stringifyUnknown(circular)).toBe('[object]')
+  })
+
+  it('rejectAsError preserves Error instances and wraps other values', () => {
+    const err = new Error('x')
+    expect(rejectAsError(err)).toBe(err)
+    expect(rejectAsError({ a: 1 }).message).toBe('{"a":1}')
   })
 })
