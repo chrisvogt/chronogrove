@@ -1,4 +1,5 @@
 import { SYNC_MANUAL_JOB_ID_ENV } from './test-support/create-express-app-common-mocks.js'
+import './test-support/create-express-app-rate-limit-mock.js'
 
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -7,78 +8,35 @@ import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+import {
+  expressAppTestAuthService,
+  expressAppTestLogger,
+  expressAppTestSyncJobQueue,
+} from './test-support/create-express-app-test-doubles.js'
+import {
+  createMockExpressResponse,
+  findProtectedRouteMiddleware,
+} from './test-support/create-express-route-coverage-helpers.js'
 import { findExpressRouteHandler as findRouteHandler } from './test-support/find-express-route-handler.js'
 
 process.env[SYNC_MANUAL_JOB_ID_ENV] = 'sync-chrisvogt-steam'
 
 const routeCoverageMediaDir = mkdtempSync(join(tmpdir(), 'cg-route-coverage-'))
 
-vi.mock('express-rate-limit', () => ({
-  rateLimit: vi.fn(() => (_req, _res, next) => next?.()),
-}))
-
 afterAll(() => {
   delete process.env[SYNC_MANUAL_JOB_ID_ENV]
   rmSync(routeCoverageMediaDir, { recursive: true, force: true })
 })
 
-const findProtectedRouteMiddleware = (
-  app: ReturnType<typeof import('express').default>,
-  method: 'get' | 'delete',
-  routePath: string
-) => {
-  const layer = app.router.stack.find(
-    (entry: { route?: { path?: string; methods?: Record<string, boolean>; stack?: Array<{ handle: Function }> } }) =>
-      entry.route?.path === routePath && entry.route?.methods?.[method]
-  )
-
-  if (!layer?.route?.stack || layer.route.stack.length < 3) {
-    throw new Error(`Protected route middleware not found: ${method.toUpperCase()} ${routePath}`)
-  }
-
-  // rateLimit → authenticateUser → requireVerifiedEmail → route handler
-  return layer.route.stack[layer.route.stack.length - 3].handle
-}
-
-const createResponse = () => {
-  const response = {
-    json: vi.fn(),
-    send: vi.fn(),
-    status: vi.fn(),
-  }
-
-  response.status.mockReturnValue(response)
-
-  return response
-}
-
 describe('createExpressApp route coverage', () => {
-  const logger = {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }
-  const authService = {
-    createSessionCookie: vi.fn(),
-    deleteUser: vi.fn(),
-    getUser: vi.fn(),
-    revokeRefreshTokens: vi.fn(),
-    verifyIdToken: vi.fn(),
-    verifySessionCookie: vi.fn(),
-  }
+  const logger = expressAppTestLogger()
+  const authService = expressAppTestAuthService()
   const documentStore = {
     getDocument: vi.fn(),
     setDocument: vi.fn(),
     mergeDocument: vi.fn(),
   }
-  const syncJobQueue = {
-    claimJob: vi.fn(),
-    claimNextJob: vi.fn(),
-    completeJob: vi.fn(),
-    enqueue: vi.fn(),
-    failJob: vi.fn(),
-    getJob: vi.fn(),
-  }
+  const syncJobQueue = expressAppTestSyncJobQueue()
   const ensureRuntimeConfigApplied = vi.fn().mockResolvedValue(undefined)
   const getClientAuthConfig = vi.fn(() => ({
     apiKey: 'public-key',
@@ -86,14 +44,9 @@ describe('createExpressApp route coverage', () => {
     projectId: 'metrics-project',
   }))
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    ensureRuntimeConfigApplied.mockResolvedValue(undefined)
-  })
-
-  it('serves both client auth config routes through the shared config sender', async () => {
+  const buildApp = async () => {
     const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
+    return createExpressApp({
       authService,
       documentStore,
       ensureRuntimeConfigApplied,
@@ -102,12 +55,21 @@ describe('createExpressApp route coverage', () => {
       resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
       syncJobQueue,
     })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    ensureRuntimeConfigApplied.mockResolvedValue(undefined)
+  })
+
+  it('serves both client auth config routes through the shared config sender', async () => {
+    const app = await buildApp()
 
     const clientAuthHandler = findRouteHandler(app, 'get', '/api/client-auth-config')
     const firebaseAliasHandler = findRouteHandler(app, 'get', '/api/firebase-config')
 
-    const clientAuthResponse = createResponse()
-    const firebaseAliasResponse = createResponse()
+    const clientAuthResponse = createMockExpressResponse()
+    const firebaseAliasResponse = createMockExpressResponse()
 
     await clientAuthHandler({}, clientAuthResponse)
     await firebaseAliasHandler({}, firebaseAliasResponse)
@@ -141,18 +103,9 @@ describe('createExpressApp route coverage', () => {
     'instagram',
     'steam',
   ])('dispatches the %s sync route through the queue-backed runner', async (provider) => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
     const syncRouteHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider')
-    const response = createResponse()
+    const response = createMockExpressResponse()
     const { runSyncForProvider } = await import('../services/sync-manual.js')
 
     await syncRouteHandler({ params: { provider } }, response)
@@ -172,16 +125,7 @@ describe('createExpressApp route coverage', () => {
     const { getWidgetContent } = await import('../widgets/get-widget-content.js')
     vi.mocked(getWidgetContent).mockResolvedValueOnce({ payload: { from: 'test' } })
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const handler = findRouteHandler(app, 'get', '/api/widgets/:provider')
     const json = vi.fn()
@@ -211,19 +155,10 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('returns 401 when session auth reaches the defensive no-token branch', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const sessionHandler = findRouteHandler(app, 'post', '/api/auth/session')
-    const response = createResponse()
+    const response = createMockExpressResponse()
     const authorization = {
       startsWith: vi.fn(() => true),
       split: vi.fn(() => ['Bearer token', 'synthetic-token']),
@@ -242,19 +177,10 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('returns 401 when the protected auth middleware receives a blank bearer token', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const authenticateUser = findProtectedRouteMiddleware(app, 'get', '/api/user/profile')
-    const response = createResponse()
+    const response = createMockExpressResponse()
     const next = vi.fn()
 
     await authenticateUser(
@@ -280,16 +206,7 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('handles CSRF-shaped errors in the error middleware before delegating others', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     type ErrorLayer = { handle?: (a: unknown, b: unknown, c: unknown, d: unknown) => void }
     const stack = (app as { router?: { stack: ErrorLayer[] } }).router?.stack ?? []
@@ -334,16 +251,7 @@ describe('createExpressApp route coverage', () => {
       }
     )
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -382,16 +290,7 @@ describe('createExpressApp route coverage', () => {
       worker: { jobId: 'j1', result: 'SUCCESS' },
     })
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -436,16 +335,7 @@ describe('createExpressApp route coverage', () => {
       }
     )
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -481,16 +371,7 @@ describe('createExpressApp route coverage', () => {
       }
     )
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -524,16 +405,7 @@ describe('createExpressApp route coverage', () => {
       worker: { jobId: 'j1', result: 'SUCCESS' },
     })
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -574,16 +446,7 @@ describe('createExpressApp route coverage', () => {
       worker: { jobId: 'j1', result: 'SUCCESS' },
     })
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -609,16 +472,7 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('returns 400 for manual sync stream when provider param is missing', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -637,16 +491,7 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('returns 400 for manual sync stream with an unsupported provider', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -668,16 +513,7 @@ describe('createExpressApp route coverage', () => {
     const { runSyncForProvider } = await import('../services/sync-manual.js')
     vi.mocked(runSyncForProvider).mockRejectedValueOnce(new Error('sync boom'))
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -699,16 +535,7 @@ describe('createExpressApp route coverage', () => {
     const { runSyncForProvider } = await import('../services/sync-manual.js')
     vi.mocked(runSyncForProvider).mockRejectedValueOnce('plain failure')
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -741,16 +568,7 @@ describe('createExpressApp route coverage', () => {
       },
     )
 
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
 
     const streamHandler = findRouteHandler(app, 'get', '/api/widgets/sync/:provider/stream')
     const response = {
@@ -773,16 +591,7 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('GET /api/csrf-token uses res.locals._csrf when req.csrfToken is not a function', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
     const csrfHandler = findRouteHandler(app, 'get', '/api/csrf-token')
     const res = {
       json: vi.fn(),
@@ -796,18 +605,9 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('GET /api/user/profile route handler no-ops when req.user is missing (defensive)', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
     const handler = findRouteHandler(app, 'get', '/api/user/profile')
-    const res = createResponse()
+    const res = createMockExpressResponse()
     await handler({ user: undefined } as never, res as never)
     expect(authService.getUser).not.toHaveBeenCalled()
     expect(res.status).not.toHaveBeenCalled()
@@ -815,18 +615,9 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('DELETE /api/user/account route handler no-ops when req.user is missing (defensive)', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
     const handler = findRouteHandler(app, 'delete', '/api/user/account')
-    const res = createResponse()
+    const res = createMockExpressResponse()
     await handler({ user: undefined } as never, res as never)
     expect(authService.deleteUser).not.toHaveBeenCalled()
     expect(res.status).not.toHaveBeenCalled()
@@ -834,18 +625,9 @@ describe('createExpressApp route coverage', () => {
   })
 
   it('POST /api/auth/logout route handler no-ops when req.user is missing (defensive)', async () => {
-    const { createExpressApp } = await import('./create-express-app.js')
-    const app = createExpressApp({
-      authService,
-      documentStore,
-      ensureRuntimeConfigApplied,
-      getClientAuthConfig,
-      logger,
-      resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-      syncJobQueue,
-    })
+    const app = await buildApp()
     const handler = findRouteHandler(app, 'post', '/api/auth/logout')
-    const res = createResponse()
+    const res = createMockExpressResponse()
     await handler({ user: undefined } as never, res as never)
     expect(authService.revokeRefreshTokens).not.toHaveBeenCalled()
     expect(res.status).not.toHaveBeenCalled()
@@ -856,20 +638,11 @@ describe('createExpressApp route coverage', () => {
     const uid = 'user-one'
 
     it('GET returns saved theme, defaults, invalid theme coerced, array settings as empty', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       const handler = findRouteHandler(app, 'get', '/api/user/settings')
       const reqUser = { user: { uid, email: 'a@chrisvogt.me' } } as never
 
-      const res1 = createResponse()
+      const res1 = createMockExpressResponse()
       documentStore.getDocument.mockResolvedValueOnce({ settings: { theme: 'starry-night' } })
       await handler(reqUser, res1 as never)
       expect(res1.status).toHaveBeenCalledWith(200)
@@ -878,7 +651,7 @@ describe('createExpressApp route coverage', () => {
         payload: { theme: 'starry-night' },
       })
 
-      const res2 = createResponse()
+      const res2 = createMockExpressResponse()
       documentStore.getDocument.mockResolvedValueOnce(null)
       await handler(reqUser, res2 as never)
       expect(res2.json).toHaveBeenCalledWith({
@@ -886,7 +659,7 @@ describe('createExpressApp route coverage', () => {
         payload: { theme: 'sonoran-dusk' },
       })
 
-      const res3 = createResponse()
+      const res3 = createMockExpressResponse()
       documentStore.getDocument.mockResolvedValueOnce({ settings: { theme: 'not-a-theme' } })
       await handler(reqUser, res3 as never)
       expect(res3.json).toHaveBeenCalledWith({
@@ -894,7 +667,7 @@ describe('createExpressApp route coverage', () => {
         payload: { theme: 'sonoran-dusk' },
       })
 
-      const res4 = createResponse()
+      const res4 = createMockExpressResponse()
       documentStore.getDocument.mockResolvedValueOnce({ settings: ['x'] })
       await handler(reqUser, res4 as never)
       expect(res4.json).toHaveBeenCalledWith({
@@ -904,57 +677,30 @@ describe('createExpressApp route coverage', () => {
     })
 
     it('GET returns 500 when getDocument throws', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       documentStore.getDocument.mockRejectedValueOnce(new Error('firestore down'))
       const handler = findRouteHandler(app, 'get', '/api/user/settings')
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await handler({ user: { uid } } as never, res as never)
       expect(res.status).toHaveBeenCalledWith(500)
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false }))
     })
 
     it('GET no-ops when req.user is missing', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       const handler = findRouteHandler(app, 'get', '/api/user/settings')
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await handler({ user: undefined } as never, res as never)
       expect(documentStore.getDocument).not.toHaveBeenCalled()
     })
 
     it('PATCH merges theme with prior settings and returns 200', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       documentStore.getDocument.mockResolvedValue({
         settings: { theme: 'sonoran-dusk', keep: true },
       })
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await handler(
         {
           user: { uid },
@@ -976,20 +722,11 @@ describe('createExpressApp route coverage', () => {
     })
 
     it('PATCH uses empty prior settings when settings missing or non-object', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
 
       documentStore.getDocument.mockResolvedValueOnce(null)
-      const res1 = createResponse()
+      const res1 = createMockExpressResponse()
       await handler({ user: { uid }, body: { theme: 'sonoran-dusk' } } as never, res1 as never)
       expect(documentStore.mergeDocument).toHaveBeenCalledWith(
         `users/${uid}`,
@@ -999,7 +736,7 @@ describe('createExpressApp route coverage', () => {
 
       vi.mocked(documentStore.mergeDocument).mockClear()
       documentStore.getDocument.mockResolvedValueOnce({ settings: [1] })
-      const res2 = createResponse()
+      const res2 = createMockExpressResponse()
       await handler({ user: { uid }, body: { theme: 'sonoran-dusk' } } as never, res2 as never)
       expect(documentStore.mergeDocument).toHaveBeenCalledWith(
         `users/${uid}`,
@@ -1008,24 +745,15 @@ describe('createExpressApp route coverage', () => {
     })
 
     it('PATCH returns 400 for invalid theme', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await handler({ user: { uid }, body: { theme: 'hack' } } as never, res as never)
       expect(res.status).toHaveBeenCalledWith(400)
       expect(res.json).toHaveBeenCalledWith({ ok: false, error: 'Invalid theme' })
       expect(documentStore.mergeDocument).not.toHaveBeenCalled()
 
-      const res2 = createResponse()
+      const res2 = createMockExpressResponse()
       await handler({ user: { uid }, body: { theme: 42 } } as never, res2 as never)
       expect(res2.status).toHaveBeenCalledWith(400)
     })
@@ -1046,7 +774,7 @@ describe('createExpressApp route coverage', () => {
         syncJobQueue,
       })
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await handler({ user: { uid }, body: { theme: 'sonoran-dusk' } } as never, res as never)
       expect(res.status).toHaveBeenCalledWith(500)
       expect(res.json).toHaveBeenCalledWith({
@@ -1056,37 +784,19 @@ describe('createExpressApp route coverage', () => {
     })
 
     it('PATCH returns 500 when mergeDocument throws', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       documentStore.getDocument.mockResolvedValue({ settings: {} })
       documentStore.mergeDocument.mockRejectedValueOnce(new Error('write failed'))
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await handler({ user: { uid }, body: { theme: 'sonoran-dusk' } } as never, res as never)
       expect(res.status).toHaveBeenCalledWith(500)
     })
 
     it('PATCH no-ops when req.user is missing', async () => {
-      const { createExpressApp } = await import('./create-express-app.js')
-      const app = createExpressApp({
-        authService,
-        documentStore,
-        ensureRuntimeConfigApplied,
-        getClientAuthConfig,
-        logger,
-        resolveMediaStore: () => new LocalDiskMediaStore(routeCoverageMediaDir),
-        syncJobQueue,
-      })
+      const app = await buildApp()
       const handler = findRouteHandler(app, 'patch', '/api/user/settings')
-      const res = createResponse()
+      const res = createMockExpressResponse()
       vi.mocked(documentStore.mergeDocument).mockClear()
       await handler({ user: undefined, body: { theme: 'sonoran-dusk' } } as never, res as never)
       expect(documentStore.mergeDocument).not.toHaveBeenCalled()
@@ -1097,7 +807,7 @@ describe('createExpressApp route coverage', () => {
     it('calls next when req.user is absent', async () => {
       const { requireVerifiedEmail } = await import('./create-express-app.js')
       const next = vi.fn()
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await requireVerifiedEmail({} as never, res as never, next)
       expect(next).toHaveBeenCalledTimes(1)
       expect(res.status).not.toHaveBeenCalled()
@@ -1108,7 +818,7 @@ describe('createExpressApp route coverage', () => {
         './create-express-app.js'
       )
       const next = vi.fn()
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await requireVerifiedEmail(
         {
           user: {
@@ -1131,7 +841,7 @@ describe('createExpressApp route coverage', () => {
     it('calls next when the user email is verified', async () => {
       const { requireVerifiedEmail } = await import('./create-express-app.js')
       const next = vi.fn()
-      const res = createResponse()
+      const res = createMockExpressResponse()
       await requireVerifiedEmail(
         {
           user: {

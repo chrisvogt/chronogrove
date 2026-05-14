@@ -1,5 +1,6 @@
 import './test-support/create-express-app-common-mocks.js'
 import './test-support/create-express-app-onboarding-wizard-mock.js'
+import './test-support/create-express-app-rate-limit-mock.js'
 
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -9,28 +10,22 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import dns from 'dns'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+import {
+  expressAppTestAuthService,
+  expressAppTestLogger,
+  expressAppTestSyncJobQueue,
+} from './test-support/create-express-app-test-doubles.js'
 import { findExpressRouteHandler as findRouteHandler } from './test-support/find-express-route-handler.js'
 
 const onboardingExpressMediaDir = mkdtempSync(join(tmpdir(), 'cg-onboarding-express-'))
-
-vi.mock('express-rate-limit', () => ({
-  rateLimit: vi.fn(() => (_req: unknown, _res: unknown, next: () => void) => next()),
-}))
 
 afterAll(() => {
   rmSync(onboardingExpressMediaDir, { recursive: true, force: true })
 })
 
 describe('createExpressApp onboarding routes', () => {
-  const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
-  const authService = {
-    createSessionCookie: vi.fn(),
-    deleteUser: vi.fn(),
-    getUser: vi.fn(),
-    revokeRefreshTokens: vi.fn(),
-    verifyIdToken: vi.fn(),
-    verifySessionCookie: vi.fn(),
-  }
+  const logger = expressAppTestLogger()
+  const authService = expressAppTestAuthService()
   const documentStore = {
     getDocument: vi.fn(),
     setDocument: vi.fn(),
@@ -38,14 +33,7 @@ describe('createExpressApp onboarding routes', () => {
     legacyUsernameClaimed: vi.fn(),
     legacyUsernameOwnerUid: vi.fn(),
   }
-  const syncJobQueue = {
-    claimJob: vi.fn(),
-    claimNextJob: vi.fn(),
-    completeJob: vi.fn(),
-    enqueue: vi.fn(),
-    failJob: vi.fn(),
-    getJob: vi.fn(),
-  }
+  const syncJobQueue = expressAppTestSyncJobQueue()
 
   beforeEach(() => {
     vi.clearAllMocks()
