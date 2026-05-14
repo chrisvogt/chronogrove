@@ -1,3 +1,5 @@
+import { SYNC_MANUAL_JOB_ID_ENV } from './test-support/create-express-app-common-mocks.js'
+
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -5,6 +7,9 @@ import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+import { findExpressRouteHandler as findRouteHandler } from './test-support/find-express-route-handler.js'
+
+process.env[SYNC_MANUAL_JOB_ID_ENV] = 'sync-chrisvogt-steam'
 
 const routeCoverageMediaDir = mkdtempSync(join(tmpdir(), 'cg-route-coverage-'))
 
@@ -12,44 +17,10 @@ vi.mock('express-rate-limit', () => ({
   rateLimit: vi.fn(() => (_req, _res, next) => next?.()),
 }))
 
-vi.mock('../jobs/delete-user.js', () => ({
-  default: vi.fn(() => Promise.resolve({ result: 'SUCCESS' })),
-}))
-
-vi.mock('../widgets/get-widget-content.js', () => ({
-  getWidgetContent: vi.fn(() => Promise.resolve({ ok: true })),
-  validWidgetIds: ['spotify'],
-}))
-
-vi.mock('../services/sync-manual.js', () => ({
-  runSyncForProvider: vi.fn(() => Promise.resolve({
-    afterJob: { jobId: 'sync-chrisvogt-steam', status: 'completed' },
-    beforeJob: { jobId: 'sync-chrisvogt-steam', status: 'queued' },
-    enqueue: { jobId: 'sync-chrisvogt-steam', status: 'enqueued' },
-    worker: { jobId: 'sync-chrisvogt-steam', result: 'SUCCESS' },
-  })),
-}))
-
 afterAll(() => {
+  delete process.env[SYNC_MANUAL_JOB_ID_ENV]
   rmSync(routeCoverageMediaDir, { recursive: true, force: true })
 })
-
-const findRouteHandler = (
-  app: ReturnType<typeof import('express').default>,
-  method: 'get' | 'delete' | 'post' | 'patch',
-  routePath: string
-) => {
-  const layer = app.router.stack.find(
-    (entry: { route?: { path?: string; methods?: Record<string, boolean>; stack?: Array<{ handle: Function }> } }) =>
-      entry.route?.path === routePath && entry.route?.methods?.[method]
-  )
-
-  if (!layer?.route?.stack?.length) {
-    throw new Error(`Route not found: ${method.toUpperCase()} ${routePath}`)
-  }
-
-  return layer.route.stack[layer.route.stack.length - 1].handle
-}
 
 const findProtectedRouteMiddleware = (
   app: ReturnType<typeof import('express').default>,

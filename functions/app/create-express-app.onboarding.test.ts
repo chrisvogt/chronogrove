@@ -1,3 +1,6 @@
+import './test-support/create-express-app-common-mocks.js'
+import './test-support/create-express-app-onboarding-wizard-mock.js'
+
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,6 +9,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import dns from 'dns'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
+import { findExpressRouteHandler as findRouteHandler } from './test-support/find-express-route-handler.js'
 
 const onboardingExpressMediaDir = mkdtempSync(join(tmpdir(), 'cg-onboarding-express-'))
 
@@ -13,50 +17,9 @@ vi.mock('express-rate-limit', () => ({
   rateLimit: vi.fn(() => (_req: unknown, _res: unknown, next: () => void) => next()),
 }))
 
-vi.mock('../jobs/delete-user.js', () => ({
-  default: vi.fn(() => Promise.resolve({ result: 'SUCCESS' })),
-}))
-
-vi.mock('../widgets/get-widget-content.js', () => ({
-  getWidgetContent: vi.fn(() => Promise.resolve({ ok: true })),
-  validWidgetIds: ['spotify'],
-}))
-
-vi.mock('../services/sync-manual.js', () => ({
-  runSyncForProvider: vi.fn(() =>
-    Promise.resolve({
-      afterJob: { jobId: 'j', status: 'completed' },
-      beforeJob: { jobId: 'j', status: 'queued' },
-      enqueue: { jobId: 'j', status: 'enqueued' },
-      worker: { jobId: 'j', result: 'SUCCESS' },
-    })
-  ),
-}))
-
-vi.mock('../services/onboarding-wizard-persistence.js', () => ({
-  loadOnboardingStateForApi: vi.fn(),
-  persistOnboardingWizardState: vi.fn(),
-}))
-
 afterAll(() => {
   rmSync(onboardingExpressMediaDir, { recursive: true, force: true })
 })
-
-const findRouteHandler = (
-  app: ReturnType<typeof import('express').default>,
-  method: 'get' | 'put',
-  routePath: string
-) => {
-  const layer = app.router.stack.find(
-    (entry: {
-      route?: { path?: string; methods?: Record<string, boolean>; stack?: Array<{ handle: Function }> }
-    }) => entry.route?.path === routePath && entry.route?.methods?.[method]
-  )
-  if (!layer?.route?.stack?.length) {
-    throw new Error(`Route not found: ${method.toUpperCase()} ${routePath}`)
-  }
-  return layer.route.stack[layer.route.stack.length - 1].handle
-}
 
 describe('createExpressApp onboarding routes', () => {
   const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
