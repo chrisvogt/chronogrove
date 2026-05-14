@@ -134,7 +134,7 @@ describe('createExpressApp media route', () => {
       getClientAuthConfig: vi.fn(() => ({})),
       logger,
       resolveMediaStore: () => ({
-        describe: () => ({ backend: 'gcs', target: '/tmp/not-local' }),
+        describe: () => ({ backend: 'gcs', target: path.join(os.tmpdir(), 'cg-express-app-not-local') }),
         fetchAndStore: vi.fn(),
         listFiles: vi.fn(),
       }),

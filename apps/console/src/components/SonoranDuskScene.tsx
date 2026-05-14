@@ -36,13 +36,26 @@ const SIL = sonoranDuskSilhouetteHex
 
 /* ── Seeded PRNG (mulberry32) ────────────────────────────────────────── */
 
+const UINT32_MODULUS = 4294967296
+/** `2 ** 31`; used with `UINT32_MODULUS` for signed int32 overflow (`n | 0` semantics). */
+const SIGNED_INT32_NEG_ABS = 2147483648
+
+/** Signed int32 wrap semantics (same as `n | 0`); mulberry32 depends on overflow, not plain truncation. */
+function coerceSignedInt32(value: number): number {
+  const t = Math.trunc(value)
+  let w = t % UINT32_MODULUS
+  if (w >= SIGNED_INT32_NEG_ABS) w -= UINT32_MODULUS
+  if (w < -SIGNED_INT32_NEG_ABS) w += UINT32_MODULUS
+  return w
+}
+
 function makeRng(seed: number) {
-  let s = seed | 0
+  let s = coerceSignedInt32(seed)
   return () => {
-    s = (s + 0x6d2b79f5) | 0
+    s = coerceSignedInt32(s + 0x6d2b79f5)
     let t = Math.imul(s ^ (s >>> 15), 1 | s)
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    return ((t ^ (t >>> 14)) >>> 0) / UINT32_MODULUS
   }
 }
 

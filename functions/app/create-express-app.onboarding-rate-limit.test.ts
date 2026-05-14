@@ -1,37 +1,26 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import './test-support/create-express-app-common-mocks.js'
+import './test-support/create-express-app-onboarding-wizard-mock.js'
+
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import dns from 'dns'
 import request from 'supertest'
 
 import { LocalDiskMediaStore } from '../adapters/storage/local-disk-media-store.js'
 
+const onboardingRlMediaDir = mkdtempSync(join(tmpdir(), 'cg-onboarding-rl-'))
+
 /**
  * Real `express-rate-limit` (not mocked) so onboarding limiters exercise the
  * custom 429 handler (`limitLogger.warn`, `response.status(...).json(...)`).
  */
-vi.mock('../jobs/delete-user.js', () => ({
-  default: vi.fn(() => Promise.resolve({ result: 'SUCCESS' })),
-}))
 
-vi.mock('../widgets/get-widget-content.js', () => ({
-  getWidgetContent: vi.fn(() => Promise.resolve({ ok: true })),
-  validWidgetIds: ['spotify'],
-}))
-
-vi.mock('../services/sync-manual.js', () => ({
-  runSyncForProvider: vi.fn(() =>
-    Promise.resolve({
-      afterJob: { jobId: 'j', status: 'completed' },
-      beforeJob: { jobId: 'j', status: 'queued' },
-      enqueue: { jobId: 'j', status: 'enqueued' },
-      worker: { jobId: 'j', result: 'SUCCESS' },
-    })
-  ),
-}))
-
-vi.mock('../services/onboarding-wizard-persistence.js', () => ({
-  loadOnboardingStateForApi: vi.fn(),
-  persistOnboardingWizardState: vi.fn(),
-}))
+afterAll(() => {
+  rmSync(onboardingRlMediaDir, { recursive: true, force: true })
+})
 
 describe('createExpressApp onboarding rate limits (real limiter)', () => {
   const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
@@ -78,7 +67,7 @@ describe('createExpressApp onboarding rate limits (real limiter)', () => {
       ensureRuntimeConfigApplied: vi.fn().mockResolvedValue(undefined),
       getClientAuthConfig: vi.fn(() => ({})),
       logger,
-      resolveMediaStore: () => new LocalDiskMediaStore('/tmp/metrics-onboarding-rl'),
+      resolveMediaStore: () => new LocalDiskMediaStore(onboardingRlMediaDir),
       syncJobQueue,
     })
   }

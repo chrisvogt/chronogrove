@@ -9,6 +9,8 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         '__tests__/',
+        'jobs/test-support/',
+        'app/test-support/',
         'coverage/',
         '*.config.js',
         'scripts/**/*.cjs',

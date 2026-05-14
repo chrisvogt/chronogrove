@@ -7,6 +7,13 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.31] - 2026-05-12
+
+### Changed
+
+- **Sonoran dusk scene** — **`SonoranDuskScene`**: mulberry32 state uses **`coerceSignedInt32`** (**`Math.trunc`** plus signed **32-bit** wrap) instead of bitwise **`| 0`**, preserving overflow semantics while satisfying static analysis.
+- **Settings / profile identity** — **`swallowSettingsProfileFloatingPromiseRejection`**: referenced **`reason`** via an early return so the shared **`.catch`** handler is intentionally a no-op without **`void`** or an empty body (Sonar).
+
 ## [0.6.30] - 2026-05-12
 
 ### Changed

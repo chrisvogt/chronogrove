@@ -10,6 +10,11 @@ const pMapDefault = vi.hoisted(() =>
   }),
 )
 
+const syncInstagramMediaTarget = vi.hoisted(() => {
+  const { syncJobDiskMediaTarget } = require('./test-support/sync-job-disk-media-target.ts')
+  return syncJobDiskMediaTarget('instagram')
+})
+
 vi.mock('p-map', () => ({
   default: pMapDefault,
 }))
@@ -23,7 +28,7 @@ vi.mock('../api/instagram/fetch-instagram-data.js', () => ({
 }))
 
 vi.mock('../services/media/media-service.js', () => ({
-  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: '/tmp/media' })),
+  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: syncInstagramMediaTarget })),
   listStoredMedia: vi.fn(),
   storeRemoteMedia: vi.fn(async (item) => ({
     fileName: item.destinationPath || 'chrisvogt/instagram/test.jpg',

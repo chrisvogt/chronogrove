@@ -28,7 +28,11 @@ export function profileIdentityLoadFailureMessage(loadError: string | null): str
 }
 
 /** @internal Promise.catch handler for fire-and-forget calls; exported for Vitest coverage. */
-export function swallowSettingsProfileFloatingPromiseRejection(_reason?: unknown): void {}
+export function swallowSettingsProfileFloatingPromiseRejection(reason?: unknown): void {
+  if (reason !== undefined) {
+    return
+  }
+}
 
 async function putOnboarding(
   user: User,

@@ -242,7 +242,10 @@ const syncDiscogsData = async (
     const storedMediaFileNames = await listStoredMedia()
 
     const mediaReducer = getMediaReducer(storedMediaFileNames)
-    const mediaToDownload = enhancedReleases.reduce(mediaReducer, [])
+    const mediaToDownload = enhancedReleases.reduce(
+      (acc, release) => mediaReducer(acc, release),
+      [] as DiscogsMediaDownloadTask[],
+    )
 
     // Calculate document size before saving to Firestore
     const documentToSave = {

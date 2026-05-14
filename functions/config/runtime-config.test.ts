@@ -1,3 +1,6 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('runtime config', () => {
@@ -15,9 +18,10 @@ describe('runtime config', () => {
     }))
 
     const { bootstrapLocalRuntimeEnv } = await import('./runtime-config.js')
-    bootstrapLocalRuntimeEnv('/tmp/functions.env')
+    const runtimeEnvPath = join(tmpdir(), 'chronogrove-functions.env')
+    bootstrapLocalRuntimeEnv(runtimeEnvPath)
 
-    expect(loadLocalDevelopmentEnv).toHaveBeenCalledWith('/tmp/functions.env')
+    expect(loadLocalDevelopmentEnv).toHaveBeenCalledWith(runtimeEnvPath)
   })
 
   it('skips loading when runtime config was already applied', async () => {

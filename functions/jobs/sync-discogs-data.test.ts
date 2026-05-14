@@ -10,6 +10,11 @@ const pMapDefault = vi.hoisted(() =>
   }),
 )
 
+const syncDiscogsMediaTarget = vi.hoisted(() => {
+  const { syncJobDiskMediaTarget } = require('./test-support/sync-job-disk-media-target.ts')
+  return syncJobDiskMediaTarget('discogs')
+})
+
 vi.mock('p-map', () => ({
   default: pMapDefault,
 }))
@@ -27,7 +32,7 @@ vi.mock('../api/discogs/fetch-releases-batch.js', () => ({
 }))
 
 vi.mock('../services/media/media-service.js', () => ({
-  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: '/tmp/media' })),
+  describeMediaStore: vi.fn(() => ({ backend: 'disk', target: syncDiscogsMediaTarget })),
   listStoredMedia: vi.fn(),
   storeRemoteMedia: vi.fn(async (item) => ({
     fileName: item.destinationPath || 'chrisvogt/discogs/test.jpg',

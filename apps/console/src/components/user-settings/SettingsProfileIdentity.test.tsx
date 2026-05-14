@@ -112,7 +112,7 @@ describe('profileIdentityLoadFailureMessage', () => {
 })
 
 describe('swallowSettingsProfileFloatingPromiseRejection', () => {
-  it('is a no-op (shared Promise.catch handler for fire-and-forget)', () => {
+  it('is intentionally inert (shared Promise.catch handler for fire-and-forget)', () => {
     swallowSettingsProfileFloatingPromiseRejection()
     swallowSettingsProfileFloatingPromiseRejection(new Error('reject'))
   })
