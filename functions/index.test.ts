@@ -161,11 +161,13 @@ describe('index.js', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    // Set NODE_ENV to test to avoid dotenv loading
-    process.env.NODE_ENV = 'test'
+    // Isolate NODE_ENV per test; parallel files must not leak production/development.
+    vi.unstubAllEnvs()
+    vi.stubEnv('NODE_ENV', 'test')
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     vi.restoreAllMocks()
   })
 
@@ -608,37 +610,29 @@ describe('index.js', () => {
     })
 
     it('should allow localhost requests in development mode', async () => {
-      // Set NODE_ENV to development to test localhost CORS
-      process.env.NODE_ENV = 'development'
-      
+      vi.stubEnv('NODE_ENV', 'development')
+
       const { expressApp } = await import('./index.js')
-      
+
       const response = await request(expressApp)
         .get('/api/widgets/spotify')
         .set('Origin', 'http://localhost:3000')
         .expect(200)
 
       expect(response.body.ok).toBe(true)
-      
-      // Reset NODE_ENV
-      process.env.NODE_ENV = 'test'
     })
 
     it('should not allow localhost requests in production mode', async () => {
-      // Set NODE_ENV to production to test localhost CORS restriction
-      process.env.NODE_ENV = 'production'
-      
+      vi.stubEnv('NODE_ENV', 'production')
+
       const { expressApp } = await import('./index.js')
-      
+
       const response = await request(expressApp)
         .get('/api/widgets/spotify')
         .set('Origin', 'http://localhost:3000')
         .expect(200) // This will still work because the CORS check is permissive
 
       expect(response.body.ok).toBe(true)
-      
-      // Reset NODE_ENV
-      process.env.NODE_ENV = 'test'
     })
   })
 
@@ -716,8 +710,7 @@ describe('index.js', () => {
 
       it('should reject request from non-allowed email domain', async () => {
         // Domain check only runs in production
-        const prevEnv = process.env.NODE_ENV
-        process.env.NODE_ENV = 'production'
+        vi.stubEnv('NODE_ENV', 'production')
         try {
           const mockVerifyIdToken = vi.fn().mockResolvedValue({
             uid: 'test-uid',
@@ -740,7 +733,8 @@ describe('index.js', () => {
           expect(response.body.ok).toBe(false)
           expect(response.body.error).toBe('Access denied. Only chrisvogt.me or chronogrove.com domain users are allowed.')
         } finally {
-          process.env.NODE_ENV = prevEnv
+          vi.unstubAllEnvs()
+          vi.stubEnv('NODE_ENV', 'test')
         }
       })
 
@@ -944,8 +938,7 @@ describe('index.js', () => {
       })
 
       it('should reject session cookie with disallowed email in production', async () => {
-        const prevEnv = process.env.NODE_ENV
-        process.env.NODE_ENV = 'production'
+        vi.stubEnv('NODE_ENV', 'production')
         const mockVerifySessionCookie = vi.fn().mockResolvedValue({
           uid: 'cookie-uid',
           email: 'test@example.com',
@@ -963,7 +956,6 @@ describe('index.js', () => {
 
         expect(response.body.ok).toBe(false)
         expect(response.body.error).toContain('Access denied')
-        process.env.NODE_ENV = prevEnv
       })
 
       it('should fall back to 401 when session cookie verification fails and no Bearer', async () => {
@@ -997,8 +989,7 @@ describe('index.js', () => {
       })
 
       it('should return 403 when Bearer token has disallowed email domain in production', async () => {
-        const prevEnv = process.env.NODE_ENV
-        process.env.NODE_ENV = 'production'
+        vi.stubEnv('NODE_ENV', 'production')
         try {
           const admin = await import('firebase-admin')
           admin.default.auth = vi.fn(() => ({
@@ -1017,7 +1008,8 @@ describe('index.js', () => {
           expect(response.body.ok).toBe(false)
           expect(response.body.error).toContain('Access denied')
         } finally {
-          process.env.NODE_ENV = prevEnv
+          vi.unstubAllEnvs()
+          vi.stubEnv('NODE_ENV', 'test')
         }
       })
     })
@@ -1401,8 +1393,7 @@ describe('index.js', () => {
     })
 
     it('should use applicationDefault credential when NODE_ENV is production', async () => {
-      const prevEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'production'
+      vi.stubEnv('NODE_ENV', 'production')
       vi.clearAllMocks()
       vi.resetModules()
       await import('firebase-admin')
@@ -1414,7 +1405,6 @@ describe('index.js', () => {
         databaseURL: 'mock-database-url',
         projectId: 'personal-stats-chrisvogt',
       })
-      process.env.NODE_ENV = prevEnv
     })
 
     it('should use applicationDefault credential when token.json is missing', async () => {
