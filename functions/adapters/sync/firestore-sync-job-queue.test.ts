@@ -369,6 +369,28 @@ describe('FirestoreSyncJobQueue', () => {
     )
   })
 
+
+  it('redacts sensitive query params from stored job errors', async () => {
+    const queue = new FirestoreSyncJobQueue()
+    const summary = {
+      durationMs: 134,
+      result: 'FAILURE' as const,
+    }
+    const error = new Error(
+      'Request failed with status code 400: GET https://graph.instagram.com/v25.0/123/media?access_token=IGAAsecret&fields=id',
+    )
+
+    await queue.failJob('sync-chrisvogt-instagram', error, summary)
+
+    expect(mockDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error:
+          'Request failed with status code 400: GET https://graph.instagram.com/v25.0/123/media?access_token=[REDACTED]&fields=id',
+      }),
+      { merge: true },
+    )
+  })
+
   it('stores Error instances as their message when failing a job', async () => {
     const queue = new FirestoreSyncJobQueue()
     const summary = {

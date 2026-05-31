@@ -202,6 +202,77 @@ describe('syncInstagramData', () => {
     )
   })
 
+
+  it('omits token-bearing paging URLs from last-response', async () => {
+    vi.mocked(fetchInstagramData).mockResolvedValue({
+      media: {
+        data: [],
+        paging: {
+          next: 'https://graph.instagram.com/v25.0/123/media?access_token=secret-token&fields=id',
+        },
+      },
+      followers_count: 1,
+      media_count: 0,
+      username: 'testuser',
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    await syncInstagramData(documentStore)
+
+    expect(documentStore.setDocument).toHaveBeenNthCalledWith(
+      1,
+      'users/chrisvogt/instagram/last-response',
+      expect.objectContaining({
+        media: { data: [] },
+        fetchedAt: expect.any(String),
+      }),
+    )
+    const lastResponsePayload = vi.mocked(documentStore.setDocument).mock.calls[0][1] as {
+      media?: { paging?: unknown }
+    }
+    expect(lastResponsePayload.media?.paging).toBeUndefined()
+  })
+
+  it('redacts access tokens from API error messages', async () => {
+    vi.mocked(fetchInstagramData).mockRejectedValue(
+      new Error(
+        'Request failed with status code 400: GET https://graph.instagram.com/me?access_token=secret-token',
+      ),
+    )
+
+    const result = await syncInstagramData(documentStore)
+
+    expect(result).toEqual({
+      result: 'FAILURE',
+      error: 'Request failed with status code 400: GET https://graph.instagram.com/me?access_token=[REDACTED]',
+    })
+    expect(logger.error).toHaveBeenCalledWith('Failed to sync Instagram data.', {
+      error: 'Request failed with status code 400: GET https://graph.instagram.com/me?access_token=[REDACTED]',
+    })
+  })
+
+  it('stores profile-only last-response when media is absent', async () => {
+    vi.mocked(fetchInstagramData).mockResolvedValue({
+      followers_count: 10,
+      follows_count: 5,
+      media_count: 0,
+      username: 'testuser',
+    })
+    vi.mocked(listStoredMedia).mockResolvedValue([])
+
+    await syncInstagramData(documentStore)
+
+    expect(documentStore.setDocument).toHaveBeenNthCalledWith(
+      1,
+      'users/chrisvogt/instagram/last-response',
+      expect.objectContaining({
+        media: undefined,
+        username: 'testuser',
+        fetchedAt: expect.any(String),
+      }),
+    )
+  })
+
   it('should handle API errors gracefully', async () => {
     vi.mocked(fetchInstagramData).mockRejectedValue(new Error('Instagram API Error'))
 

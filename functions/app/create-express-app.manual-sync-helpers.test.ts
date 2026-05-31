@@ -42,6 +42,26 @@ describe('formatUnknownFailureMessage', () => {
     circular.self = circular
     expect(formatUnknownFailureMessage(circular)).toBe('Unserializable error')
   })
+
+  it('redacts sensitive query params from Error messages', () => {
+    expect(
+      formatUnknownFailureMessage(
+        new Error('GET https://graph.instagram.com/me?access_token=secret'),
+      ),
+    ).toBe('GET https://graph.instagram.com/me?access_token=[REDACTED]')
+  })
+
+  it('redacts sensitive query params from string message fields', () => {
+    expect(formatUnknownFailureMessage({ message: 'failed?key=api-secret' })).toBe(
+      'failed?key=[REDACTED]',
+    )
+  })
+
+  it('redacts sensitive query params from JSON-stringified objects', () => {
+    expect(formatUnknownFailureMessage({ detail: 'https://x?token=abc' })).toBe(
+      '{"detail":"https://x?token=[REDACTED]"}',
+    )
+  })
 })
 
 describe('normalizeExpressPathParam', () => {

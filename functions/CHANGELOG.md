@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.4] - 2026-05-30
+
+### Fixed
+
+- **Sync job errors** — **`got`** HTTP failures embed the full request URL (including query secrets) in **`Error.message`**. Sync jobs now redact sensitive query params (**`access_token`**, **`token`**, **`key`**, **`api_key`**, OAuth tokens, etc.) before writing **`sync_jobs.error`**, returning manual sync **`afterJob.error`**, and logging via **`sync-worker`** / provider jobs. New **`utils/redact-secrets.ts`** (**`redactSecretsInText`**, **`safeErrorMessageFromUnknown`**) is applied in **`firestore-sync-job-queue`**, **`create-express-app`** (**`formatUnknownFailureMessage`** / failure responses), and **`sync-instagram-data`**.
+
+- **Instagram `last-response`** — Successful syncs no longer persist **`media.paging.next`** / **`previous`** URLs from the Graph API (those URLs embed **`access_token`**). Stored snapshot keeps profile fields and **`media.data`** only.
+
+### Tests
+
+- **`redact-secrets.test.ts`** — URL redaction for Instagram, Steam, Discogs, Goodreads, Flickr, and JSON-stringified errors.
+- **`firestore-sync-job-queue.test.ts`** — **`failJob`** stores redacted error strings.
+- **`sync-instagram-data.test.ts`** — Omits paging from **`last-response`**; redacts tokens in failure messages.
+
 ## [0.31.3] - 2026-05-12
 
 ### Changed

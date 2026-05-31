@@ -33,6 +33,7 @@ import {
 import { registerDiscogsOAuthRoutes } from './oauth-discogs.js'
 import { registerFlickrOAuthRoutes } from './oauth-flickr.js'
 import { registerGitHubOAuthRoutes } from './oauth-github.js'
+import { safeErrorMessageFromUnknown } from '../utils/redact-secrets.js'
 import { toStoredDateTime } from '../utils/time.js'
 import { hostnameCnameChainsTo } from '../utils/dns-cname-verify.js'
 import { resolveWidgetDataUserIdFromPublicQuery } from './resolve-widget-data-user-id.js'
@@ -82,14 +83,14 @@ const buildSuccessResponse = <TPayload>(
 
 export function formatUnknownFailureMessage(err: unknown): string {
   if (err instanceof Error) {
-    return err.message
+    return safeErrorMessageFromUnknown(err)
   }
   const message = (err as { message?: unknown })?.message
   if (typeof message === 'string') {
-    return message
+    return safeErrorMessageFromUnknown(message)
   }
   try {
-    return JSON.stringify(err)
+    return safeErrorMessageFromUnknown(JSON.stringify(err))
   } catch {
     return 'Unserializable error'
   }
@@ -97,7 +98,7 @@ export function formatUnknownFailureMessage(err: unknown): string {
 
 const buildFailureResponse = (err: unknown = {}): { ok: false; error: string } => ({
   ok: false,
-  error: err instanceof Error ? err.message : formatUnknownFailureMessage(err),
+  error: safeErrorMessageFromUnknown(err),
 })
 
 /** Production gate: revisit domain allowlist, MFA, and Firebase Auth policies before a public launch. */
