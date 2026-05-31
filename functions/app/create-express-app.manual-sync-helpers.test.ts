@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import type { Request } from 'express'
 
 import {
-  formatUnknownFailureMessage,
   isInfrastructurePublicWidgetHostname,
   normalizeExpressPathParam,
   parseManualSyncProviderSegmentFromRequest,
@@ -20,47 +19,6 @@ describe('isInfrastructurePublicWidgetHostname', () => {
 
   it('treats normal tenant hostnames as non-infrastructure', () => {
     expect(isInfrastructurePublicWidgetHostname('api.example.com')).toBe(false)
-  })
-})
-
-describe('formatUnknownFailureMessage', () => {
-  it('returns message for Error instances', () => {
-    expect(formatUnknownFailureMessage(new Error('boom'))).toBe('boom')
-  })
-
-  it('returns string message field when present', () => {
-    expect(formatUnknownFailureMessage({ message: 'from object' })).toBe('from object')
-  })
-
-  it('JSON-stringifies plain objects when message is absent or non-string', () => {
-    expect(formatUnknownFailureMessage({ code: 418 })).toBe('{"code":418}')
-    expect(formatUnknownFailureMessage({ message: 99 })).toBe('{"message":99}')
-  })
-
-  it('returns a fixed label when JSON.stringify fails (e.g. circular structure)', () => {
-    const circular: Record<string, unknown> = { a: 1 }
-    circular.self = circular
-    expect(formatUnknownFailureMessage(circular)).toBe('Unserializable error')
-  })
-
-  it('redacts sensitive query params from Error messages', () => {
-    expect(
-      formatUnknownFailureMessage(
-        new Error('GET https://graph.instagram.com/me?access_token=secret'),
-      ),
-    ).toBe('GET https://graph.instagram.com/me?access_token=[REDACTED]')
-  })
-
-  it('redacts sensitive query params from string message fields', () => {
-    expect(formatUnknownFailureMessage({ message: 'failed?key=api-secret' })).toBe(
-      'failed?key=[REDACTED]',
-    )
-  })
-
-  it('redacts sensitive query params from JSON-stringified objects', () => {
-    expect(formatUnknownFailureMessage({ detail: 'https://x?token=abc' })).toBe(
-      '{"detail":"https://x?token=[REDACTED]"}',
-    )
   })
 })
 

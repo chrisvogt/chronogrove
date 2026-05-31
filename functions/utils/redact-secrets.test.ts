@@ -95,4 +95,9 @@ describe('safeErrorMessageFromUnknown', () => {
 
     expect(safeErrorMessageFromUnknown(circular)).toBe('Unknown error')
   })
+
+  it('returns Unknown error for undefined and unstringifiable values', () => {
+    expect(safeErrorMessageFromUnknown(undefined)).toBe('Unknown error')
+    expect(safeErrorMessageFromUnknown(() => {})).toBe('Unknown error')
+  })
 })

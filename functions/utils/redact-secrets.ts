@@ -42,7 +42,9 @@ const extractErrorMessage = (error: unknown): string => {
     }
   }
   try {
-    return JSON.stringify(error)
+    const serialized = JSON.stringify(error)
+    // JSON.stringify returns undefined for undefined, functions, symbols, etc.
+    return typeof serialized === 'string' ? serialized : 'Unknown error'
   } catch {
     return 'Unknown error'
   }

@@ -81,21 +81,6 @@ const buildSuccessResponse = <TPayload>(
     payload,
   })
 
-export function formatUnknownFailureMessage(err: unknown): string {
-  if (err instanceof Error) {
-    return safeErrorMessageFromUnknown(err)
-  }
-  const message = (err as { message?: unknown })?.message
-  if (typeof message === 'string') {
-    return safeErrorMessageFromUnknown(message)
-  }
-  try {
-    return safeErrorMessageFromUnknown(JSON.stringify(err))
-  } catch {
-    return 'Unserializable error'
-  }
-}
-
 const buildFailureResponse = (err: unknown = {}): { ok: false; error: string } => ({
   ok: false,
   error: safeErrorMessageFromUnknown(err),
