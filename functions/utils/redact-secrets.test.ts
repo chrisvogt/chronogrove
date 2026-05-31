@@ -79,6 +79,10 @@ describe('safeErrorMessageFromUnknown', () => {
     )
   })
 
+  it('stringifies objects with a non-string message property', () => {
+    expect(safeErrorMessageFromUnknown({ message: 99 })).toBe('{"message":99}')
+  })
+
   it('redacts sensitive params in JSON-stringified objects', () => {
     expect(safeErrorMessageFromUnknown({ url: 'https://x?key=secret', code: 418 })).toBe(
       '{"url":"https://x?key=[REDACTED]","code":418}',
