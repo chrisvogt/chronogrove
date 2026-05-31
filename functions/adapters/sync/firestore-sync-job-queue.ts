@@ -14,6 +14,7 @@ import type {
   QueuedSyncJobDescriptor,
   SyncJobSummary,
 } from '../../types/sync-pipeline.js'
+import { safeErrorMessageFromUnknown } from '../../utils/redact-secrets.js'
 import { toStoredDateTime } from '../../utils/time.js'
 
 const SYNC_JOBS_COLLECTION = 'sync_jobs'
@@ -21,27 +22,7 @@ const SYNC_JOBS_COLLECTION = 'sync_jobs'
 const toSyncJobId = ({ mode, provider, userId }: QueuedSyncJobDescriptor) =>
   `${mode}-${userId}-${provider}`
 
-const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message
-  }
-  if (typeof error === 'string') {
-    return error
-  }
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof (error as { message: unknown }).message === 'string'
-  ) {
-    return (error as { message: string }).message
-  }
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return 'Unknown error'
-  }
-}
+const toErrorMessage = (error: unknown): string => safeErrorMessageFromUnknown(error)
 
 export class FirestoreSyncJobQueue implements SyncJobQueue {
   async getJob(jobId: string): Promise<QueuedSyncJob | null> {

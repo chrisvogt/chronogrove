@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DocumentStore } from '../ports/document-store.js'
 import type { SyncJobQueue } from '../ports/sync-job-queue.js'
-import { configureLogger } from './logger.js'
+import { configureLogger, getLogger } from './logger.js'
 import { processSyncJob, runNextSyncJob } from './sync-worker.js'
 
 vi.mock('../jobs/sync-discogs-data.js', () => ({
@@ -254,6 +254,37 @@ describe('runNextSyncJob', () => {
     )
   })
 
+  it('redacts secrets from logged errors when the sync job returns FAILURE', async () => {
+    const tokenError =
+      'Request failed: GET https://api.steampowered.com/?key=steam-secret&steamid=1'
+    vi.mocked(syncSteamData).mockResolvedValue({
+      error: tokenError,
+      result: 'FAILURE',
+    })
+
+    await processSyncJob({
+      documentStore,
+      job: {
+        runCount: 1,
+        enqueuedAt: '2026-03-21T02:00:00.000Z',
+        jobId: 'sync-chrisvogt-steam',
+        mode: 'sync',
+        provider: 'steam',
+        status: 'processing',
+        updatedAt: '2026-03-21T02:00:00.000Z',
+        userId: 'chrisvogt',
+      },
+      syncJobQueue,
+    })
+
+    expect(getLogger().error).toHaveBeenCalledWith(
+      'Sync job failed',
+      expect.objectContaining({
+        error: 'Request failed: GET https://api.steampowered.com/?key=[REDACTED]&steamid=1',
+      }),
+    )
+  })
+
   it('processes an already claimed sync job directly', async () => {
     vi.mocked(syncSteamData).mockResolvedValue({
       data: {
@@ -423,7 +454,9 @@ describe('runNextSyncJob', () => {
   })
 
   it('fails the job when the sync handler throws unexpectedly', async () => {
-    vi.mocked(syncSteamData).mockRejectedValueOnce(new Error('Steam exploded'))
+    vi.mocked(syncSteamData).mockRejectedValueOnce(
+      new Error('GET https://api.steampowered.com/?key=steam-secret'),
+    )
 
     await expect(processSyncJob({
       documentStore,
@@ -446,11 +479,17 @@ describe('runNextSyncJob', () => {
     expect(syncJobQueue.failJob).toHaveBeenCalledWith(
       'sync-chrisvogt-steam',
       expect.objectContaining({
-        message: 'Steam exploded',
+        message: 'GET https://api.steampowered.com/?key=steam-secret',
       }),
       expect.objectContaining({
         result: 'FAILURE',
       })
+    )
+    expect(getLogger().error).toHaveBeenCalledWith(
+      'Sync job threw unexpectedly',
+      expect.objectContaining({
+        error: 'GET https://api.steampowered.com/?key=[REDACTED]',
+      }),
     )
   })
 })

@@ -10,6 +10,7 @@ import syncSpotifyData from '../jobs/sync-spotify-data.js'
 import syncSteamData from '../jobs/sync-steam-data.js'
 import type { DocumentStore } from '../ports/document-store.js'
 import type { SyncJobQueue } from '../ports/sync-job-queue.js'
+import { safeErrorMessageFromUnknown } from '../utils/redact-secrets.js'
 import { getLogger } from './logger.js'
 import type {
   QueuedSyncJob,
@@ -147,7 +148,7 @@ export const processSyncJob = async ({
     await syncJobQueue.failJob(job.jobId, result.error, summary)
     logger.error('Sync job failed', {
       durationMs,
-      error: result.error,
+      error: safeErrorMessageFromUnknown(result.error),
       jobId: job.jobId,
       provider: job.provider,
       userId: job.userId,
@@ -165,7 +166,7 @@ export const processSyncJob = async ({
     await syncJobQueue.failJob(job.jobId, error, summary)
     logger.error('Sync job threw unexpectedly', {
       durationMs,
-      error,
+      error: safeErrorMessageFromUnknown(error),
       jobId: job.jobId,
       provider: job.provider,
       userId: job.userId,

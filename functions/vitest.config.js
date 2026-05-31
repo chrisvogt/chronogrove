@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
+    // Fork per file so global env (NODE_ENV) cannot leak across parallel suites.
+    pool: 'forks',
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],

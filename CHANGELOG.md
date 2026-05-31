@@ -15,6 +15,8 @@ Package-specific changes:
 
 ### Changed
 
+- **Workspace** — **Functions 0.31.4**: redact sensitive query params from sync job errors (**`sync_jobs.error`**, manual sync JSON, Cloud Logging) when **`got`** embeds secrets in request URLs; omit token-bearing Instagram Graph **`paging`** URLs from **`last-response`**. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
+
 - **Workspace** — **Functions 0.31.3**: CSRF salt prefix uses **`crypto.randomBytes`** (**hex**); Vitest disk paths use **`os.tmpdir`** / **`mkdtemp`** instead of literal **`/tmp`**; **Discogs** / **Instagram** sync **`reduce`** callbacks wrap **`mediaReducer`**. See **[functions/CHANGELOG.md](functions/CHANGELOG.md)**.
 
 - **Workspace** — **Console 0.6.31**: **`SonoranDuskScene`** mulberry32 uses **`Math.trunc`**-based signed **32-bit** wrap (**`coerceSignedInt32`**); **`SettingsProfileIdentity`** **`swallowSettingsProfileFloatingPromiseRejection`** uses an early-return guard on **`reason`** for an intentional no-op catch handler. See **[apps/console/CHANGELOG.md](apps/console/CHANGELOG.md)**.

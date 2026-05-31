@@ -10,6 +10,7 @@ import fetchInstagramData from '../api/instagram/fetch-instagram-data.js'
 import { getLogger } from '../services/logger.js'
 import toIGDestinationPath from '../transformers/to-ig-destination-path.js'
 import transformInstagramMedia from '../transformers/transform-instagram-media.js'
+import { safeErrorMessageFromUnknown } from '../utils/redact-secrets.js'
 import { toStoredDateTime } from '../utils/time.js'
 import { getDefaultWidgetUserId, toProviderCollectionPath } from '../config/backend-paths.js'
 import type {
@@ -124,9 +125,11 @@ const syncInstagramData = async (
       phase: 'instagram.persist',
       message: 'Reticulating splines.',
     })
-    // Save the raw Instagram response data
+    // Save the raw Instagram response data (omit paging URLs that embed access tokens)
+    const { media, ...instagramProfile } = instagramResponse
     await documentStore.setDocument(`${instagramCollectionPath}/last-response`, {
-      ...instagramResponse,
+      ...instagramProfile,
+      media: media ? { data: media.data } : undefined,
       fetchedAt: toStoredDateTime(),
     })
 
@@ -192,10 +195,11 @@ const syncInstagramData = async (
       data: updatedWidgetContent,
     }
   } catch (error: unknown) {
-    logger.error('Failed to sync Instagram data.', error)
+    const safeError = safeErrorMessageFromUnknown(error)
+    logger.error('Failed to sync Instagram data.', { error: safeError })
     return {
       result: 'FAILURE',
-      error: error instanceof Error ? error.message : error,
+      error: safeError,
     }
   }
 }
