@@ -13,7 +13,7 @@ const SENSITIVE_QUERY_PARAM_NAMES = [
 ] as const
 
 const sensitiveQueryParamPattern = new RegExp(
-  `([?&](?:${SENSITIVE_QUERY_PARAM_NAMES.join('|')})=)([^&\\s"']+)`,
+  String.raw`([?&](?:${SENSITIVE_QUERY_PARAM_NAMES.join('|')})=)([^&\s"']+)`,
   'gi',
 )
 
@@ -35,13 +35,11 @@ const extractErrorMessage = (error: unknown): string => {
   if (typeof error === 'string') {
     return error
   }
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof (error as { message: unknown }).message === 'string'
-  ) {
-    return (error as { message: string }).message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message: unknown }).message
+    if (typeof message === 'string') {
+      return message
+    }
   }
   try {
     return JSON.stringify(error)
